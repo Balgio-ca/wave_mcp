@@ -1,7 +1,9 @@
 # Wave Accounting MCP Server Requirements
 
 # Core MCP framework
-mcp>=1.0.0
+# Pinned to 1.x: mcp 2.0 removed the decorator-based low-level Server API
+# (@app.list_tools/@app.call_tool/...) that this server is built on.
+mcp>=1.0.0,<2.0.0
 
 # HTTP client for API requests
 httpx>=0.24.0

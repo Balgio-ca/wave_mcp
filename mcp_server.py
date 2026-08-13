@@ -38,8 +38,9 @@ from mcp.types import (
     LoggingLevel
 )
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the .env next to this script, regardless of the
+# working directory the MCP client launches us from (e.g. Claude Desktop uses "/").
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
