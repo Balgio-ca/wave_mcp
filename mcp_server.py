@@ -359,7 +359,105 @@ class WaveClient:
         """
         result = await self._make_request(query, {"businessId": business_id})
         return result["data"]["business"]["customers"]["edges"]
-    
+
+    async def get_invoices(self,
+                           business_id: str,
+                           status: Optional[str] = None,
+                           customer_id: Optional[str] = None,
+                           from_date: Optional[str] = None,
+                           to_date: Optional[str] = None,
+                           max_results: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get invoices for a business with offset-based pagination and optional filters.
+
+        Filters (all optional):
+            status: Wave invoice status (e.g. DRAFT, SAVED, UNSENT, SENT, VIEWED, PARTIAL, PAID, OVERDUE)
+            customer_id: only invoices for this customer
+            from_date / to_date: invoiceDate range bounds (YYYY-MM-DD)
+            max_results: stop paginating once this many invoices are collected
+        """
+        all_invoices = []
+        page = 1
+        page_size = 50
+
+        while True:
+            query = """
+            query($businessId: ID!, $page: Int!, $pageSize: Int!, $status: InvoiceStatus, $customerId: ID, $from: Date, $to: Date) {
+                business(id: $businessId) {
+                    id
+                    invoices(page: $page, pageSize: $pageSize, status: $status, customerId: $customerId, invoiceDateStart: $from, invoiceDateEnd: $to) {
+                        pageInfo {
+                            currentPage
+                            totalPages
+                            totalCount
+                        }
+                        edges {
+                            node {
+                                id
+                                invoiceNumber
+                                status
+                                title
+                                invoiceDate
+                                dueDate
+                                pdfUrl
+                                viewUrl
+                                currency { code }
+                                total { value }
+                                amountDue { value }
+                                amountPaid { value }
+                                customer { id name }
+                            }
+                        }
+                    }
+                }
+            }
+            """
+
+            variables = {
+                "businessId": business_id,
+                "page": page,
+                "pageSize": page_size,
+                "status": status,
+                "customerId": customer_id,
+                "from": from_date,
+                "to": to_date
+            }
+
+            result = await self._make_request(query, variables)
+            invoices_response = result["data"]["business"]["invoices"]
+            page_invoices = invoices_response["edges"]
+            page_info = invoices_response.get("pageInfo", {})
+
+            all_invoices.extend(page_invoices)
+
+            if max_results and len(all_invoices) >= max_results:
+                return all_invoices[:max_results]
+
+            current_page = page_info.get("currentPage", page)
+            total_pages = page_info.get("totalPages", page)
+            if current_page >= total_pages or not page_invoices:
+                break
+            page += 1
+
+        return all_invoices
+
+    async def download_invoice_pdf(self, pdf_url: str, output_path: str) -> str:
+        """Download an invoice PDF from its Wave pdfUrl to a local file.
+
+        The pdfUrl returned by Wave is a signed, publicly reachable URL, so no
+        Authorization header is sent (that would leak the API token to a non-API host).
+        Returns the absolute path of the written file.
+        """
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(pdf_url, timeout=60.0)
+            response.raise_for_status()
+
+        output_path = os.path.expanduser(output_path)
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        with open(output_path, "wb") as f:
+            f.write(response.content)
+
+        return os.path.abspath(output_path)
+
     async def create_income(self, 
                            business_id: str,
                            customer_id: Optional[str],
@@ -876,6 +974,78 @@ async def handle_list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="list_invoices",
+            description="List invoices from Wave with optional filters (status, customer, date range). Returns each invoice's number, status, dates, amounts, customer, and a downloadable PDF URL.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "description": "Filter by invoice status: DRAFT, SAVED, UNSENT, SENT, VIEWED, PARTIAL, PAID, OVERDUE (optional)"
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "description": "Filter by customer name (matched against existing Wave customers, optional)"
+                    },
+                    "from_date": {
+                        "type": "string",
+                        "description": "Only invoices dated on or after this date (YYYY-MM-DD, optional)"
+                    },
+                    "to_date": {
+                        "type": "string",
+                        "description": "Only invoices dated on or before this date (YYYY-MM-DD, optional)"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of invoices to return (optional)",
+                        "minimum": 1
+                    }
+                },
+                "additionalProperties": False
+            }
+        ),
+        Tool(
+            name="download_invoice_pdf",
+            description="Download one or more invoice PDFs to a local folder. Provide either specific invoice numbers or the same filters as list_invoices to download a batch.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "output_dir": {
+                        "type": "string",
+                        "description": "Local directory to save the PDF(s) into (e.g. '~/Downloads/factures-wave'). Created if it does not exist.",
+                        "default": "~/Downloads/wave-invoices"
+                    },
+                    "invoice_numbers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Specific invoice numbers to download (optional). If omitted, the filters below select the batch."
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "Filter by invoice status: DRAFT, SAVED, UNSENT, SENT, VIEWED, PARTIAL, PAID, OVERDUE (optional)"
+                    },
+                    "customer_name": {
+                        "type": "string",
+                        "description": "Filter by customer name (optional)"
+                    },
+                    "from_date": {
+                        "type": "string",
+                        "description": "Only invoices dated on or after this date (YYYY-MM-DD, optional)"
+                    },
+                    "to_date": {
+                        "type": "string",
+                        "description": "Only invoices dated on or before this date (YYYY-MM-DD, optional)"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of invoices to download when using filters (optional)",
+                        "minimum": 1
+                    }
+                },
+                "additionalProperties": False
+            }
+        ),
+        Tool(
             name="debug_accounts",
             description="Debug tool: List ALL accounts with their types and subtypes to help diagnose account detection issues",
             inputSchema={
@@ -1290,6 +1460,128 @@ async def handle_call_tool(name: str, arguments: dict) -> list[TextContent]:
             
             return [TextContent(type="text", text=result)]
         
+        elif name == "list_invoices":
+            if not wave_client.business_id:
+                return [TextContent(type="text", text="Error: No business selected. Use set_business tool first.")]
+
+            status = arguments.get("status")
+            customer_name = arguments.get("customer_name")
+            from_date = arguments.get("from_date")
+            to_date = arguments.get("to_date")
+            max_results = arguments.get("max_results")
+
+            # Resolve customer name to ID if provided
+            customer_id = None
+            if customer_name:
+                customers = await wave_client.get_customers(wave_client.business_id)
+                for customer in customers:
+                    if customer["node"]["name"].lower() == customer_name.lower():
+                        customer_id = customer["node"]["id"]
+                        break
+                if not customer_id:
+                    return [TextContent(type="text", text=f"❌ Customer '{customer_name}' not found. Use search_customer to check the exact name.")]
+
+            invoices = await wave_client.get_invoices(
+                wave_client.business_id,
+                status=status,
+                customer_id=customer_id,
+                from_date=from_date,
+                to_date=to_date,
+                max_results=max_results
+            )
+
+            if not invoices:
+                return [TextContent(type="text", text="No invoices found matching the given criteria.")]
+
+            result = f"🧾 **Invoices** ({len(invoices)} found):\n\n"
+            for edge in invoices:
+                node = edge["node"]
+                currency = (node.get("currency") or {}).get("code", "")
+                total = (node.get("total") or {}).get("value", "?")
+                amount_due = (node.get("amountDue") or {}).get("value", "?")
+                customer = (node.get("customer") or {}).get("name", "No customer")
+                result += f"**Invoice {node.get('invoiceNumber', 'N/A')}** — {node.get('status', 'N/A')}\n"
+                result += f"  - Customer: {customer}\n"
+                result += f"  - Date: {node.get('invoiceDate', 'N/A')} | Due: {node.get('dueDate', 'N/A')}\n"
+                result += f"  - Total: {total} {currency} | Due: {amount_due} {currency}\n"
+                result += f"  - PDF: {node.get('pdfUrl', 'N/A')}\n"
+                result += f"  - ID: `{node.get('id', 'N/A')}`\n\n"
+
+            return [TextContent(type="text", text=result)]
+
+        elif name == "download_invoice_pdf":
+            if not wave_client.business_id:
+                return [TextContent(type="text", text="Error: No business selected. Use set_business tool first.")]
+
+            output_dir = arguments.get("output_dir", "~/Downloads/wave-invoices")
+            invoice_numbers = arguments.get("invoice_numbers")
+            status = arguments.get("status")
+            customer_name = arguments.get("customer_name")
+            from_date = arguments.get("from_date")
+            to_date = arguments.get("to_date")
+            max_results = arguments.get("max_results")
+
+            # Resolve customer name to ID if provided
+            customer_id = None
+            if customer_name:
+                customers = await wave_client.get_customers(wave_client.business_id)
+                for customer in customers:
+                    if customer["node"]["name"].lower() == customer_name.lower():
+                        customer_id = customer["node"]["id"]
+                        break
+                if not customer_id:
+                    return [TextContent(type="text", text=f"❌ Customer '{customer_name}' not found. Use search_customer to check the exact name.")]
+
+            invoices = await wave_client.get_invoices(
+                wave_client.business_id,
+                status=status,
+                customer_id=customer_id,
+                from_date=from_date,
+                to_date=to_date,
+                max_results=None if invoice_numbers else max_results
+            )
+
+            # Narrow to specific invoice numbers if requested
+            if invoice_numbers:
+                wanted = {str(n).strip() for n in invoice_numbers}
+                invoices = [e for e in invoices if str(e["node"].get("invoiceNumber", "")).strip() in wanted]
+
+            if not invoices:
+                return [TextContent(type="text", text="No invoices found matching the given criteria — nothing to download.")]
+
+            output_dir = os.path.expanduser(output_dir)
+            saved = []
+            failed = []
+            for edge in invoices:
+                node = edge["node"]
+                pdf_url = node.get("pdfUrl")
+                number = node.get("invoiceNumber") or node.get("id", "invoice")
+                safe_number = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in str(number))
+                filename = os.path.join(output_dir, f"invoice-{safe_number}.pdf")
+
+                if not pdf_url:
+                    failed.append(f"{number} (no PDF URL — likely a draft)")
+                    continue
+                try:
+                    path = await wave_client.download_invoice_pdf(pdf_url, filename)
+                    saved.append(path)
+                except Exception as e:
+                    failed.append(f"{number} ({str(e)})")
+
+            result = f"📥 **Invoice download complete**\n\n"
+            result += f"- Saved: {len(saved)}\n"
+            result += f"- Folder: {output_dir}\n"
+            if saved:
+                result += "\n**Files:**\n"
+                for path in saved:
+                    result += f"  - {path}\n"
+            if failed:
+                result += f"\n⚠️ **Skipped/failed ({len(failed)}):**\n"
+                for item in failed:
+                    result += f"  - {item}\n"
+
+            return [TextContent(type="text", text=result)]
+
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     

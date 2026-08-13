@@ -107,6 +107,10 @@ List my Wave businesses and set the active one.
 - **`search_customer`**: Search for existing customers
 - **`get_income_accounts`**: List available income accounts
 
+### Invoice Management
+- **`list_invoices`**: List invoices with optional filters (status, customer, date range); returns amounts and a downloadable PDF URL for each
+- **`download_invoice_pdf`**: Download one or more invoice PDFs to a local folder, by invoice number or by the same filters as `list_invoices`
+
 ### Business Management
 - **`set_business`**: Set the active business
 - **`list_businesses`**: List all available businesses
