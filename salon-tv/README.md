@@ -5,19 +5,20 @@ qui pilote tous tes téléviseurs, quelle que soit leur marque, groupés par
 pièce, sur un seul écran. Un tap coupe le son de toutes les TV sauf celle du
 match.
 
-Prend en charge **Android TV / Google TV** (Nvidia Shield, Chromecast, Sony,
-TCL, Philips, Hisense, Xiaomi…), **Fire TV** (Amazon) et **Roku**
-(expérimental) — et le squelette est conçu pour qu'ajouter une marque
-supplémentaire soit une entrée de catalogue plus un pilote, sans toucher au
-reste. Voir [Ajouter un type d'appareil](#ajouter-un-type-dappareil).
+Périmètre : les **systèmes dérivés d'Android** — **Android TV / Google TV**
+(Nvidia Shield, Chromecast, Sony, Philips, TCL, Hisense, Xiaomi, boîtiers et
+projecteurs XGIMI/Nebula) et **Fire TV** (Amazon, Insignia, Toshiba, TCL).
+C'est le terrain où le contrôle est fiable : appairage officiel et adb pour la
+vérité terrain audio. Le squelette reste ouvert — ajouter un OS est une entrée
+de catalogue plus un pilote. Voir [Ajouter un type d'appareil](#ajouter-un-type-dappareil).
 
 > Nom au format ASO : marque courte + phrase-clé recherchée. Modifiable dans
 > **Réglages → Marque** (ou `BRAND_NAME` / `TAGLINE`), ce qui change aussi le
 > nom sur l'écran d'accueil via le manifest.
 
 Sous le capot : *Android TV Remote v2* (TLS, code PIN) via
-[`androidtv-remote`](https://www.npmjs.com/package/androidtv-remote), **adb sur
-TCP** pour Fire TV et le volume absolu, **ECP/HTTP** pour Roku.
+[`androidtv-remote`](https://www.npmjs.com/package/androidtv-remote) et **adb
+sur TCP** pour Fire TV et le volume absolu.
 
 Un seul conteneur Docker (Node 22 + Express), un frontend statique (une page
 `index.html` en JavaScript vanille), interface en **français**, installable sur
@@ -49,7 +50,7 @@ l'écran d'accueil d'un iPhone.
    avec des onglets de pièce en haut de l'écran. Tout se configure dans
    l'interface — aucune IP en dur dans le code.
 2. **Découverte réseau multi-protocoles.** Le scan sonde les ports déclarés au
-   catalogue (6466 Android TV Remote, 5555 adb, 8060 Roku ECP), **devine le
+   catalogue (6466 Android TV Remote, 5555 adb), **devine le
    type** de chaque appareil trouvé et l'ajoute en un tap.
 3. **Scènes automatiques par pièce** — générées dès qu'un appareil existe :
    - **solo** (un bouton par TV) — cette TV au son, les autres de la pièce en muet ;
@@ -133,12 +134,12 @@ du sélecteur de type au moment de l'ajout. Les guides couvrent, pas à pas :
   (révoquer les autorisations).
 - **Nvidia Shield** — débogage réseau.
 - **Chromecast / Google TV** — 7 appuis sur *Version d'Android TV OS*.
-- **Sony Bravia, Philips, TCL, Hisense, Xiaomi** — parcours Android TV générique.
-- **Roku** — pas d'adb : autorisation du contrôle par le réseau (ECP).
+- **Sony, Philips, TCL, Hisense, Sharp, Xiaomi** — parcours Android TV générique.
+- **Boîtiers Android TV et projecteurs** (XGIMI, Anker Nebula) — dont le cas où
+  le débogage réseau n'existe pas dans le menu.
 
 Le canal adb apporte le **contrôle de volume absolu** et l'état réel. Il est
-indispensable sur Fire TV, fortement recommandé sur Android TV, et sans objet
-sur Roku.
+indispensable sur Fire TV et fortement recommandé sur Android TV.
 
 Après activation : bouton **Connecter** du bandeau. La **première** connexion
 affiche « Autoriser le débogage USB ? » **sur la TV** : coche **Toujours
@@ -197,8 +198,9 @@ l'état réel, il n'y a rien à resynchroniser.
 
 ## Ajouter un type d'appareil
 
-L'architecture est **agnostique du protocole** : adb, TLS/protobuf (Android TV
-Remote v2) et HTTP (Roku ECP) cohabitent déjà. Le reste du système —
+L'architecture est **agnostique du protocole** : les deux pilotes actuels
+utilisent déjà des transports différents (TLS/protobuf + adb pour Android TV,
+adb seul pour Fire TV). Le reste du système —
 découverte, registre, scènes, interface — se pilote à partir de deux choses :
 le **catalogue** et les **capacités** déclarées.
 
@@ -231,11 +233,17 @@ au lieu de produire une erreur.
 | `pairing` | flux de code PIN |
 | `adb` | bouton *Connecter* + état adb |
 
-`src/roku.js` sert de modèle : ~180 lignes, aucun adb, aucun appairage — la
-preuve que le squelette n'est pas lié à Android.
+### Au-delà d'Android
 
-> **Roku est expérimental** : l'API ECP est documentée et stable, mais ce
-> pilote n'a pas encore tourné sur un appareil réel.
+Roku (ECP/HTTP), LG webOS (SSAP/WebSocket) et Samsung Tizen (WebSocket) sont
+techniquement atteignables par le même mécanisme — Node 22 embarque un client
+WebSocket natif, donc sans dépendance supplémentaire. Ils sont **hors périmètre
+pour l'instant** : ce sont des API rétro-conçues, non documentées par les
+constructeurs et cassables par une mise à jour firmware. À noter aussi : chez
+LG et Samsung, la TV coupe son réseau en veille — l'allumage exige un
+Wake-on-LAN, pas l'API. Samsung, en particulier, ne publie pas son état de
+mute par WebSocket (il faudrait UPnP RenderingControl, variable selon les
+modèles), ce qui ferait retomber le mute en mode `intent`.
 
 ---
 

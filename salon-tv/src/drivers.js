@@ -26,13 +26,15 @@
 
 import { AndroidTVController } from './androidtv.js';
 import { FireTVController } from './firetv.js';
-import { RokuController } from './roku.js';
 import { getType, capabilitiesOf } from './catalog.js';
 
+// Périmètre actuel : OS dérivés d'Android. Les deux pilotes utilisent déjà des
+// transports différents (protocole Remote v2 + adb / adb seul), ce qui exerce
+// réellement l'abstraction. Un OS non-Android (Roku ECP, LG webOS SSAP,
+// Samsung Tizen) s'ajouterait de la même façon, sans toucher au reste.
 const DRIVERS = {
   androidtv: AndroidTVController,
   firetv: FireTVController,
-  roku: RokuController,
 };
 
 export function createDriver(device) {

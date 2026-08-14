@@ -19,7 +19,6 @@ const CONCURRENCY = 64;      // sondes simultanées
 
 export const SHIELD_PORT = 6466; // Android TV Remote v2
 export const ADB_PORT = 5555;    // adb TCP
-export const ROKU_PORT = 8060;   // Roku ECP (HTTP)
 
 // /24 candidats : interfaces IPv4 locales + sous-réseaux des IP déjà connues
 // (appareils enregistrés), au cas où l'hôte serait multi-réseaux.
@@ -90,14 +89,12 @@ function adbModel(target) {
 //   6466            -> Android TV (service Remote v2)
 //   6466 + 5555     -> Android TV avec débogage réseau déjà actif
 //   5555 seul       -> Fire TV (adb sans service Remote v2)
-//   8060            -> Roku (ECP)
 // `model` (via adb) affine : une référence « AFT… » est une signature Amazon.
 export function guessType(openPorts, model = null) {
   const has = (p) => openPorts.includes(p);
   if (model && /^AFT/i.test(model)) return { type: 'firetv', port: ADB_PORT };
   if (has(SHIELD_PORT)) return { type: 'androidtv', port: has(ADB_PORT) ? ADB_PORT : SHIELD_PORT };
   if (has(ADB_PORT)) return { type: 'firetv', port: ADB_PORT };
-  if (has(ROKU_PORT)) return { type: 'roku', port: ROKU_PORT };
   return null;
 }
 

@@ -1,5 +1,12 @@
 // Catalogue des types d'appareils — SOURCE DE VÉRITÉ unique.
 //
+// PÉRIMÈTRE : systèmes dérivés d'Android (Android TV, Google TV, Fire OS).
+// C'est le terrain où le contrôle est fiable — protocole d'appairage officiel
+// et adb pour la vérité terrain audio. Les OS non-Android (Roku ECP,
+// LG webOS SSAP, Samsung Tizen) s'ajouteraient par le même mécanisme, mais
+// avec des API rétro-conçues, non documentées par les constructeurs et
+// cassables par une mise à jour firmware.
+//
 // Ajouter la prise en charge d'un nouveau téléviseur = ajouter une entrée ici
 // + un pilote dans drivers.js. Rien d'autre à toucher : la découverte réseau,
 // la validation du registre, le moteur de scènes et l'interface se pilotent
@@ -41,7 +48,11 @@ export const CATALOG = [
   {
     id: 'androidtv',
     label: 'Android TV / Google TV',
-    brands: ['Nvidia Shield', 'Chromecast Google TV', 'Sony Bravia', 'Philips', 'TCL (Google TV)', 'Hisense', 'Xiaomi Mi Box'],
+    brands: [
+      'Nvidia Shield', 'Chromecast avec Google TV', 'Sony Bravia', 'Philips',
+      'TCL (Google TV)', 'Hisense', 'Sharp', 'Xiaomi Mi Box / TV Stick',
+      'Boîtiers Android TV', 'Projecteurs XGIMI / Anker Nebula',
+    ],
     transport: 'androidtv-remote+adb',
     defaultPort: 5555,
     probePorts: [6466, 5555],
@@ -73,8 +84,15 @@ export const CATALOG = [
           ],
         },
         {
-          heading: 'Débogage — Sony Bravia, Philips, TCL, Hisense, Xiaomi',
+          heading: 'Débogage — Sony, Philips, TCL, Hisense, Sharp, Xiaomi',
           steps: ANDROID_DEV_MODE('Build / Numéro de build', 'Débogage USB (et Débogage réseau si présent)'),
+        },
+        {
+          heading: 'Débogage — boîtiers Android TV et projecteurs (XGIMI, Nebula)',
+          steps: [
+            ...ANDROID_DEV_MODE('Build / Numéro de build', 'Débogage USB **et** Débogage réseau (ADB over network)'),
+            "Si le débogage réseau n'existe pas dans le menu, l'appareil reste pilotable par le **code PIN** seul — sans le volume réel.",
+          ],
         },
       ],
     },
@@ -83,7 +101,10 @@ export const CATALOG = [
   {
     id: 'firetv',
     label: 'Fire TV (Amazon)',
-    brands: ['Fire TV Stick', 'Fire TV Cube', 'TCL Fire TV', 'Insignia Fire TV', 'Toshiba Fire TV'],
+    brands: [
+      'Fire TV Stick', 'Fire TV Stick 4K', 'Fire TV Cube', 'TCL Fire TV',
+      'Insignia Fire TV', 'Toshiba Fire TV', 'Hisense Fire TV',
+    ],
     transport: 'adb',
     defaultPort: 5555,
     probePorts: [5555],
@@ -114,38 +135,6 @@ export const CATALOG = [
     },
   },
 
-  {
-    id: 'roku',
-    label: 'Roku (expérimental)',
-    brands: ['Roku Express', 'Roku Streaming Stick', 'TCL Roku TV', 'Hisense Roku TV', 'Sharp Roku TV'],
-    transport: 'ecp',
-    defaultPort: 8060,
-    probePorts: [8060],
-    // Pas de volume absolu lisible ni de pairing : le mute est suivi côté serveur.
-    capabilities: ['mute', 'transport', 'dpad', 'power'],
-    experimental: true,
-    setup: {
-      title: 'Roku',
-      intro: "Roku utilise ECP (HTTP, port 8060) — ni adb ni code PIN. Il suffit d'autoriser le contrôle par le réseau.",
-      sections: [
-        {
-          heading: 'Autoriser le contrôle réseau',
-          steps: [
-            'Sur la TV : **Paramètres → Système → Paramètres avancés du système**.',
-            '**Contrôle par les applications mobiles** → **Accès réseau** = **Par défaut** ou **Permissif**.',
-            "L'IP se trouve dans **Paramètres → Réseau → À propos**.",
-            "Ajoute l'appareil ici : aucun appairage n'est nécessaire.",
-          ],
-        },
-        {
-          heading: 'Limite connue',
-          steps: [
-            "Roku ne publie pas son niveau de volume : le mute est **suivi côté serveur**. Si quelqu'un utilise la télécommande physique, réaligne avec le bouton **Son suivi**.",
-          ],
-        },
-      ],
-    },
-  },
 ];
 
 export const TYPE_IDS = CATALOG.map((t) => t.id);

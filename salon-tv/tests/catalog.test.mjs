@@ -1,4 +1,4 @@
-// Tests du catalogue, de la déduction de type et du pilote Roku (parties pures).
+// Tests du catalogue, des capacités et de la déduction de type.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -9,7 +9,6 @@ process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'deck-cat-'));
 
 const { CATALOG, getType, supports, defaultPortOf, probeMap, publicCatalog } = await import('../src/catalog.js');
 const { guessType } = await import('../src/discovery.js');
-const { parseDeviceInfo } = await import('../src/roku.js');
 const { supportedTypes, driverExists } = await import('../src/drivers.js');
 
 test('catalogue : chaque type est complet et cohérent', () => {
@@ -41,10 +40,7 @@ test('capacités et ports par défaut', () => {
   assert.ok(supports('androidtv', 'volume'));
   assert.ok(supports('firetv', 'adb'));
   assert.ok(!supports('firetv', 'pairing'));     // Fire TV : pas de code PIN
-  assert.ok(!supports('roku', 'adb'));           // Roku : ECP, pas d'adb
-  assert.ok(!supports('roku', 'volume'));        // ECP ne publie pas le volume
-  assert.ok(supports('roku', 'mute'));
-  assert.equal(defaultPortOf('roku'), 8060);
+  assert.equal(defaultPortOf('androidtv'), 5555);
   assert.equal(defaultPortOf('firetv'), 5555);
   assert.equal(getType('inconnu'), null);
 });
@@ -53,7 +49,6 @@ test('probeMap : un port peut désigner plusieurs types', () => {
   const map = probeMap();
   assert.ok(map.get(5555).includes('firetv'));
   assert.ok(map.get(5555).includes('androidtv'));
-  assert.deepEqual(map.get(8060), ['roku']);
   assert.deepEqual(map.get(6466), ['androidtv']);
 });
 
@@ -62,26 +57,14 @@ test('guessType : déduction depuis les ports ouverts', () => {
   // Android TV avec débogage réseau : on préfère adb (vérité terrain audio)
   assert.deepEqual(guessType([6466, 5555]), { type: 'androidtv', port: 5555 });
   assert.deepEqual(guessType([5555]), { type: 'firetv', port: 5555 });
-  assert.deepEqual(guessType([8060]), { type: 'roku', port: 8060 });
   assert.equal(guessType([80, 443]), null);
+  assert.equal(guessType([8060]), null);   // hors périmètre Android
 });
 
 test('guessType : une référence AFT… force Fire TV', () => {
   // Une Fire TV qui exposerait aussi 6466 reste une Fire TV.
   assert.deepEqual(guessType([6466, 5555], 'AFTKA'), { type: 'firetv', port: 5555 });
   assert.deepEqual(guessType([5555], 'SHIELD Android TV'), { type: 'firetv', port: 5555 });
-});
-
-test('parseDeviceInfo (Roku) : extrait modèle et état d’éveil', () => {
-  const xml = `<device-info><udn>x</udn><model-name>Roku Ultra</model-name>
-    <user-device-name>Bar TV</user-device-name><power-mode>PowerOn</power-mode></device-info>`;
-  assert.deepEqual(parseDeviceInfo(xml), { model: 'Roku Ultra', name: 'Bar TV', awake: true });
-
-  const off = `<device-info><model-name>Roku TV</model-name><power-mode>DisplayOff</power-mode></device-info>`;
-  assert.equal(parseDeviceInfo(off).awake, false);
-
-  assert.equal(parseDeviceInfo('<html>nope</html>'), null);
-  assert.equal(parseDeviceInfo(''), null);
 });
 
 test('publicCatalog : expose les guides sans logique serveur', () => {

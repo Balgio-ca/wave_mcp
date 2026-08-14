@@ -27,10 +27,15 @@ test('normalizeDevice : rejette les entrées invalides', () => {
   assert.throws(() => normalizeDevice({ name: 'X', type: 'firetv', host: '192.168.0.1', port: 70000 }), /Port invalide/);
 });
 
-test('normalizeDevice : type du catalogue + port par défaut associé', () => {
-  const r = normalizeDevice({ name: 'Bar', type: 'roku', host: '192.168.0.40' });
-  assert.equal(r.type, 'roku');
-  assert.equal(r.port, 8060);   // port ECP, pas 5555
+test('normalizeDevice : port par défaut issu du catalogue', () => {
+  const a = normalizeDevice({ name: 'Bar', type: 'androidtv', host: '192.168.0.40' });
+  assert.equal(a.port, 5555);   // port adb
+});
+
+test('normalizeDevice : les OS non-Android sont hors périmètre', () => {
+  for (const t of ['roku', 'webos', 'tizen']) {
+    assert.throws(() => normalizeDevice({ name: 'X', type: t, host: '192.168.0.41' }), /Type invalide/);
+  }
 });
 
 test('registre : ajout, pièces, doublon, suppression', () => {
