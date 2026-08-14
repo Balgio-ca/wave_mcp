@@ -129,7 +129,7 @@ reste en état `unauthorized`.
 
 > Astuce : le conteneur embarque `adb`. Pour diagnostiquer :
 > ```bash
-> docker exec -it salon-tv adb connect 192.168.0.xx:5555
+> docker exec -it salon-tv adb connect 192.168.0.13:5555
 > docker exec -it salon-tv adb devices        # doit afficher "device", pas "unauthorized"
 > ```
 

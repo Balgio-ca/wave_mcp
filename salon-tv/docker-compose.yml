@@ -6,10 +6,9 @@ services:
     network_mode: host
     restart: unless-stopped
     environment:
-      # --- Adresses des TV : à renseigner ---
-      # (remplies par l'assistant ; modifiables ici à tout moment)
-      SHIELD_HOST: "REMPLACER_IP_SHIELD"
-      FIRETV_HOST: "REMPLACER_IP_FIRETV"
+      # --- Adresses des TV (modifiables ici à tout moment) ---
+      SHIELD_HOST: "192.168.0.70"   # Nvidia Shield Pro
+      FIRETV_HOST: "192.168.0.13"   # TCL Fire TV (« mathieu's TV »)
       FIRETV_PORT: "5555"
       # --- Service ---
       PORT: "8099"
