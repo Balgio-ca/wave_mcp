@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0a0b0d">
-<title>Salon TV</title>
+<title>DECK</title>
 
 <!-- Installation sur l'écran d'accueil iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Salon TV">
+<meta name="apple-mobile-web-app-title" content="DECK">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +36,6 @@
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
   html, body { margin: 0; background: var(--bg); color: var(--text); }
 
   body {
@@ -45,7 +44,7 @@
     padding:
       calc(env(safe-area-inset-top) + 14px)
       calc(env(safe-area-inset-right) + 12px)
-      calc(env(safe-area-inset-bottom) + 20px)
+      calc(env(safe-area-inset-bottom) + 28px)
       calc(env(safe-area-inset-left) + 12px);
     max-width: 620px;
     margin: 0 auto;
@@ -54,194 +53,139 @@
     user-select: none;
   }
 
-  /* Grain léger par-dessus toute la surface */
   body::after {
     content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 9;
-    opacity: 0.035;
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 9; opacity: 0.035;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
   /* ---- En-tête ---- */
   .top {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    padding: 2px 4px 14px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 2px 4px 13px;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 16px;
+    margin-bottom: 4px;
   }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
   .top h1 {
-    font-size: 30px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin: 0;
+    font-size: 30px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; margin: 0;
   }
-  .top .sub {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    color: var(--faint);
-    text-transform: uppercase;
+  .top .tag {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em;
+    color: var(--faint); text-transform: uppercase;
+  }
+  .top .clock {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    color: var(--faint); text-transform: uppercase;
   }
 
+  /* ---- Onglets de pièce ---- */
+  .rooms {
+    display: flex; gap: 6px; overflow-x: auto; padding: 12px 0 14px;
+    scrollbar-width: none;
+  }
+  .rooms::-webkit-scrollbar { display: none; }
+  .roomtab {
+    appearance: none; flex: none;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--dim); font-family: var(--label);
+    font-size: 14px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; padding: 10px 18px; min-height: 44px;
+    border-radius: 4px;
+  }
+  .roomtab .n {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0;
+    color: var(--faint); margin-left: 6px;
+  }
+  .roomtab.active { color: var(--text); border-color: var(--phosphor); background: var(--raise); }
+
   .section-label {
-    font-size: 11px;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin: 0 0 9px 3px;
-    font-weight: 600;
+    font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 9px 3px; font-weight: 600;
   }
 
   /* ---- Scènes ---- */
-  .scenes {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 22px;
-  }
+  .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 22px; }
   .scene {
-    grid-column: span 1;
-    appearance: none;
-    border: 1px solid var(--line);
+    appearance: none; border: 1px solid var(--line);
     background: linear-gradient(180deg, var(--raise), var(--panel));
-    color: var(--text);
-    font-family: var(--label);
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 15px 6px;
-    min-height: 58px;
+    color: var(--text); font-family: var(--label);
+    font-size: 15px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 14px 6px; min-height: 60px;
     border-radius: 4px;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.5);
     transition: transform .05s, background .1s, border-color .1s;
   }
   .scene .k {
-    display: block;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    color: var(--faint);
-    margin-top: 3px;
-    text-transform: none;
+    display: block; font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.08em; color: var(--faint); margin-top: 3px; text-transform: none;
   }
-  .scene.switch { border-color: #2c4a3a; color: var(--phosphor); }
-  .scene[data-scene="off"] { grid-column: span 3; border-color: #3a2224; color: #f3b0b2; }
   .scene:active { transform: translateY(1px); background: var(--panel); border-color: var(--phosphor); }
+  .scene.k-solo.live { border-color: var(--green); color: #eafff1; }
+  .scene.k-switch { border-color: #2c4a3a; color: var(--phosphor); }
+  .scene.k-silence { border-color: #3b3a24; }
+  .scene.k-off { grid-column: span 3; border-color: #3a2224; color: #f3b0b2; }
+  /* Rangée « toute la maison » : deux boutons côte à côte, plus discrets */
+  .scenes.global { grid-template-columns: repeat(2, 1fr); margin-bottom: 22px; }
+  .scenes.global .scene { min-height: 52px; font-size: 14px; background: var(--panel); }
+  .scenes.global .scene.k-off { grid-column: span 1; }
+  .scene.k-custom { border-color: #26364a; }
 
   /* ---- Bandeaux de canal ---- */
   .strip {
     background: linear-gradient(180deg, var(--panel-2), var(--panel));
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0;
-    margin-bottom: 16px;
-    overflow: hidden;
+    border: 1px solid var(--line); border-radius: 6px;
+    margin-bottom: 16px; overflow: hidden;
     box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 6px 18px rgba(0,0,0,0.35);
   }
   .strip-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: flex; align-items: center; gap: 10px;
     padding: 13px 14px 12px;
     background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
     border-bottom: 1px solid var(--line-soft);
   }
   .led {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: #33373d;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6);
-    flex: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #33373d; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6); flex: none;
   }
   .led.green { background: var(--green); box-shadow: 0 0 9px 1px rgba(56,214,107,0.6), inset 0 0 2px rgba(255,255,255,0.4); }
   .led.amber { background: var(--amber); box-shadow: 0 0 9px 1px rgba(240,168,58,0.55), inset 0 0 2px rgba(255,255,255,0.4); }
   .led.red   { background: var(--red);   box-shadow: 0 0 9px 1px rgba(229,72,77,0.55), inset 0 0 2px rgba(255,255,255,0.4); }
-
   .strip-head .name {
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: 20px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .strip-head .state {
-    margin-left: auto;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    color: var(--dim);
-    text-align: right;
-    text-transform: uppercase;
+    margin-left: auto; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.08em; color: var(--dim); text-align: right; text-transform: uppercase;
+    white-space: nowrap;
   }
 
-  /* Écran de données (app + volume) */
-  .readout {
-    padding: 11px 14px 4px;
-    font-family: var(--mono);
-  }
+  .readout { padding: 11px 14px 4px; font-family: var(--mono); }
   .readout .app {
-    font-size: 12px;
-    color: var(--phosphor);
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-height: 15px;
+    font-size: 12px; color: var(--phosphor); letter-spacing: 0.03em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 15px;
   }
-  .vu {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 8px;
-  }
-  .meter {
-    flex: 1;
-    display: flex;
-    gap: 2px;
-    height: 14px;
-  }
-  .meter i {
-    flex: 1;
-    background: #24282e;
-    border-radius: 1px;
-  }
-  .meter i.on   { background: var(--green); }
-  .meter i.hi   { background: var(--amber); }
+  .vu { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .meter { flex: 1; display: flex; gap: 2px; height: 14px; }
+  .meter i { flex: 1; background: #24282e; border-radius: 1px; }
+  .meter i.on { background: var(--green); }
+  .meter i.hi { background: var(--amber); }
   .meter.muted i.on, .meter.muted i.hi { background: #4a2a2c; }
   .vu .pct {
-    font-size: 13px;
-    color: var(--text);
-    width: 46px;
-    text-align: right;
+    font-size: 13px; color: var(--text); width: 46px; text-align: right;
     font-variant-numeric: tabular-nums;
   }
   .vu .pct.muted { color: var(--red); }
 
-  /* ---- Rangée de transport ---- */
-  .transport {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 7px;
-    padding: 12px 14px 14px;
-  }
+  .transport { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; padding: 12px 14px 14px; }
   .btn {
-    appearance: none;
-    border: 1px solid var(--line);
+    appearance: none; border: 1px solid var(--line);
     background: linear-gradient(180deg, var(--raise), #191c21);
-    color: var(--text);
-    border-radius: 5px;
-    min-height: 56px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
+    color: var(--text); border-radius: 5px; min-height: 56px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     font-family: var(--label);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.5);
     transition: transform .05s, background .1s, border-color .1s;
@@ -250,330 +194,211 @@
   .btn .cap { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
   .btn:active { transform: translateY(1px); background: #14171b; border-color: var(--phosphor); }
   .btn.danger { color: #eaa6a8; }
-  .btn.danger:active { border-color: var(--red); }
   .btn.armed { color: var(--red); }
 
-  /* ---- Connexion Fire TV ---- */
-  .netrow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 14px 2px;
-    flex-wrap: wrap;
-  }
+  .netrow { display: flex; align-items: center; gap: 10px; padding: 0 14px 12px; flex-wrap: wrap; }
   .netbtn {
-    appearance: none;
-    border: 1px solid var(--line);
+    appearance: none; border: 1px solid var(--line);
     background: linear-gradient(180deg, var(--raise), #191c21);
-    color: var(--text);
-    font-family: var(--label);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 10px 18px;
-    min-height: 44px;
-    border-radius: 5px;
+    color: var(--text); font-family: var(--label);
+    font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 10px 18px; min-height: 44px; border-radius: 5px;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   }
   .netbtn:active { border-color: var(--phosphor); transform: translateY(1px); }
-  .netstat {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    color: var(--dim);
-    text-transform: uppercase;
-  }
-  .netstat.ok   { color: var(--green); }
+  .netbtn.ghost { background: transparent; color: var(--dim); }
+  .netstat { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--dim); text-transform: uppercase; }
+  .netstat.ok { color: var(--green); }
   .netstat.warn { color: var(--amber); }
-  .netstat.bad  { color: var(--red); }
+  .netstat.bad { color: var(--red); }
 
-  /* ---- Resync mute Fire TV ---- */
-  .resync {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 14px 14px;
-    flex-wrap: wrap;
+  .resync { display: flex; align-items: center; gap: 10px; padding: 0 14px 14px; flex-wrap: wrap; }
+  .resync .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--dim); text-transform: uppercase; }
+  .fixbtn {
+    appearance: none; border: 1px solid var(--line); background: #191c21; color: var(--text);
+    font-family: var(--label); font-size: 13px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 9px 16px; min-height: 44px; border-radius: 5px;
   }
-  .resync .lbl {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--dim);
-    text-transform: uppercase;
-  }
-  .resync .fixbtn {
-    appearance: none;
-    border: 1px solid var(--line);
-    background: #191c21;
-    color: var(--text);
-    font-family: var(--label);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 9px 16px;
-    min-height: 44px;
-    border-radius: 5px;
-  }
-  .resync .fixbtn:active { border-color: var(--phosphor); }
-  .resync .fixbtn.muted { color: var(--red); border-color: #3a2224; }
-  .resync .hint {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--faint);
-  }
+  .fixbtn.muted { color: var(--red); border-color: #3a2224; }
+  .resync .hint { font-family: var(--mono); font-size: 9px; color: var(--faint); }
 
-  /* ---- Pavé directionnel repliable ---- */
   .dpad-toggle {
-    width: 100%;
-    appearance: none;
-    background: transparent;
-    border: none;
-    border-top: 1px solid var(--line-soft);
-    color: var(--dim);
-    font-family: var(--label);
-    font-size: 12px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    padding: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    width: 100%; appearance: none; background: transparent; border: none;
+    border-top: 1px solid var(--line-soft); color: var(--dim);
+    font-family: var(--label); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .dpad-toggle .chev { transition: transform .18s; font-family: var(--mono); }
   .strip.open .dpad-toggle .chev { transform: rotate(180deg); }
-
-  .dpad-wrap {
-    display: none;
-    padding: 4px 14px 16px;
-  }
+  .dpad-wrap { display: none; padding: 4px 14px 16px; }
   .strip.open .dpad-wrap { display: block; }
   .dpad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 7px;
-    max-width: 300px;
-    margin: 0 auto 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    gap: 7px; max-width: 300px; margin: 0 auto 8px;
   }
   .dpad .btn { min-height: 62px; }
   .dpad .center { color: var(--phosphor); font-weight: 700; }
-  .dpad-extra {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
-    max-width: 300px;
-    margin: 0 auto;
-  }
+  .dpad-extra { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; max-width: 300px; margin: 0 auto; }
 
-  /* ---- Réglages / découverte réseau ---- */
-  .set-body { padding: 4px 14px 16px; }
-  .set-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 9px;
-    flex-wrap: wrap;
+  /* ---- Réglages ---- */
+  .set-body { padding: 6px 14px 18px; }
+  .set-h {
+    font-family: var(--label); font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--dim); margin: 18px 0 10px;
+    border-bottom: 1px solid var(--line-soft); padding-bottom: 7px;
   }
+  .set-h:first-child { margin-top: 4px; }
+  .set-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; flex-wrap: wrap; }
   .set-row .who {
-    font-family: var(--label);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--dim);
-    min-width: 64px;
-    white-space: nowrap;
-    flex: none;
+    font-family: var(--label); font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--dim); min-width: 58px; white-space: nowrap; flex: none;
   }
-  .ipin {
-    flex: 1;
-    min-width: 130px;
-    font-family: var(--mono);
-    font-size: 14px;
-    color: var(--text);
-    background: #0d0f12;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    padding: 11px 10px;
-    min-height: 44px;
+  .ipin, .sel {
+    flex: 1; min-width: 110px; font-family: var(--mono); font-size: 14px; color: var(--text);
+    background: #0d0f12; border: 1px solid var(--line); border-radius: 5px;
+    padding: 11px 10px; min-height: 44px;
   }
-  .ipin:focus { outline: none; border-color: var(--phosphor); }
-  .set-actions { display: flex; gap: 8px; margin: 12px 0 4px; }
-  .set-actions .netbtn { flex: 1; }
-  .scan-note {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--faint);
-    letter-spacing: 0.05em;
-    margin: 6px 0 0;
-  }
-  .found {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid var(--line-soft);
-    border-radius: 5px;
-    background: #14171b;
-    padding: 10px 12px;
-    margin-top: 8px;
-  }
-  .found .ip { font-family: var(--mono); font-size: 13px; color: var(--phosphor); }
-  .found .kind {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--dim);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .found .use {
-    margin-left: auto;
-    appearance: none;
-    border: 1px solid var(--line);
-    background: #1c2026;
-    color: var(--text);
-    font-family: var(--label);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 8px 14px;
-    min-height: 40px;
-    border-radius: 5px;
-  }
-  .found .use:active { border-color: var(--phosphor); }
+  .sel { font-family: var(--label); letter-spacing: 0.06em; text-transform: uppercase; }
+  .ipin:focus, .sel:focus { outline: none; border-color: var(--phosphor); }
+  .set-actions { display: flex; gap: 8px; margin: 12px 0 4px; flex-wrap: wrap; }
+  .set-actions .netbtn { flex: 1; min-width: 120px; }
+  .scan-note { font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: 0.05em; margin: 8px 0 0; }
 
-  /* ---- Modale de pairing PIN ---- */
+  .devrow {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--line-soft); border-radius: 5px; background: #14171b;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .devrow .meta { min-width: 0; flex: 1; }
+  .devrow .dn { font-family: var(--label); font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .devrow .dd { font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: 0.04em; }
+  .devrow .use, .devrow .del {
+    appearance: none; border: 1px solid var(--line); background: #1c2026; color: var(--text);
+    font-family: var(--label); font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 8px 12px; min-height: 40px; border-radius: 5px; flex: none;
+  }
+  .devrow .del { color: #eaa6a8; border-color: #3a2224; }
+  .devrow.known { opacity: 0.5; }
+
+  .empty {
+    border: 1px dashed var(--line); border-radius: 6px; padding: 26px 20px;
+    text-align: center; margin-bottom: 18px;
+  }
+  .empty h2 { font-size: 20px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 8px; }
+  .empty p { font-family: var(--mono); font-size: 12px; color: var(--dim); line-height: 1.6; margin: 0 0 16px; }
+
+  /* ---- Modale PIN ---- */
   .overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    background: rgba(6,7,9,0.86);
-    backdrop-filter: blur(3px);
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    display: none; position: fixed; inset: 0; z-index: 20;
+    background: rgba(6,7,9,0.86); backdrop-filter: blur(3px);
+    align-items: center; justify-content: center; padding: 24px;
   }
   .overlay.show { display: flex; }
   .modal {
-    width: 100%;
-    max-width: 340px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 22px 20px 20px;
+    width: 100%; max-width: 340px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 22px 20px 20px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.6);
   }
-  .modal h2 {
-    font-size: 20px; font-weight: 700; letter-spacing: 0.1em;
-    text-transform: uppercase; margin: 0 0 6px;
-  }
+  .modal h2 { font-size: 20px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
   .modal p { font-family: var(--mono); font-size: 12px; color: var(--dim); line-height: 1.5; margin: 0 0 16px; }
   .modal input {
-    width: 100%;
-    font-family: var(--mono);
-    font-size: 26px;
-    letter-spacing: 0.4em;
-    text-align: center;
-    text-transform: uppercase;
-    color: var(--phosphor);
-    background: #0d0f12;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    padding: 14px 10px;
-    margin-bottom: 14px;
+    width: 100%; font-family: var(--mono); font-size: 26px; letter-spacing: 0.4em;
+    text-align: center; text-transform: uppercase; color: var(--phosphor);
+    background: #0d0f12; border: 1px solid var(--line); border-radius: 5px;
+    padding: 14px 10px; margin-bottom: 14px;
   }
   .modal input:focus { outline: none; border-color: var(--phosphor); }
   .modal .go {
-    width: 100%;
-    appearance: none;
-    border: 1px solid var(--green);
-    background: rgba(56,214,107,0.12);
-    color: var(--green);
-    font-family: var(--label);
-    font-size: 16px; font-weight: 600; letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 14px;
-    border-radius: 5px;
-    min-height: 54px;
+    width: 100%; appearance: none; border: 1px solid var(--green);
+    background: rgba(56,214,107,0.12); color: var(--green); font-family: var(--label);
+    font-size: 16px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 14px; border-radius: 5px; min-height: 54px;
   }
-  .modal .go:active { background: rgba(56,214,107,0.22); }
 
   /* ---- Toast ---- */
   .toast {
-    position: fixed;
-    left: 50%;
-    bottom: calc(env(safe-area-inset-bottom) + 18px);
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 18px);
     transform: translateX(-50%) translateY(20px);
-    background: #24181a;
-    border: 1px solid #4a2a2c;
-    color: #f3b0b2;
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 10px 16px;
-    border-radius: 5px;
-    z-index: 30;
-    opacity: 0;
-    transition: opacity .2s, transform .2s;
-    pointer-events: none;
-    max-width: 90%;
-    text-align: center;
+    background: #24181a; border: 1px solid #4a2a2c; color: #f3b0b2;
+    font-family: var(--mono); font-size: 12px; padding: 10px 16px; border-radius: 5px;
+    z-index: 30; opacity: 0; transition: opacity .2s, transform .2s;
+    pointer-events: none; max-width: 90%; text-align: center;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.ok { background: #16241b; border-color: #2c4a3a; color: var(--phosphor); }
 </style>
 </head>
 <body>
 
   <header class="top">
-    <h1>Salon</h1>
-    <span class="sub" id="clock">—</span>
+    <div class="brand">
+      <h1 id="brandName">DECK</h1>
+      <span class="tag" id="brandTag">tv control</span>
+    </div>
+    <span class="clock" id="clock">—</span>
   </header>
 
-  <p class="section-label">Scènes</p>
-  <div class="scenes">
-    <button class="scene" data-scene="shield_solo">Shield<span class="k">solo audio</span></button>
-    <button class="scene" data-scene="firetv_solo">Fire TV<span class="k">solo audio</span></button>
-    <button class="scene switch" data-scene="switch">Switch<span class="k">bascule le solo</span></button>
-    <button class="scene" data-scene="silence">Silence<span class="k">tout muet</span></button>
-    <button class="scene" data-scene="pause_all">Pause<span class="k">les deux</span></button>
-    <button class="scene" data-scene="off">Extinction<span class="k">veille des deux TV</span></button>
-  </div>
+  <nav class="rooms" id="roomTabs"></nav>
 
-  <p class="section-label">Canaux</p>
-  <div id="strips"></div>
+  <div id="main"></div>
 
   <p class="section-label">Réglages</p>
   <section class="strip" id="strip-settings">
-    <button class="dpad-toggle" data-toggle="settings">Réseau &amp; appareils <span class="chev">▾</span></button>
+    <button class="dpad-toggle" data-toggle="settings">Appareils, pièces &amp; marque <span class="chev">▾</span></button>
     <div class="dpad-wrap">
       <div class="set-body">
+
+        <div class="set-h">Appareils</div>
+        <div id="deviceList"></div>
+
+        <div class="set-h">Ajouter un appareil</div>
         <div class="set-row">
-          <span class="who">Shield</span>
-          <input class="ipin" id="ip-shield" inputmode="decimal" placeholder="192.168.0.70" autocomplete="off">
+          <span class="who">Nom</span>
+          <input class="ipin" id="nd-name" placeholder="TV du bar" autocomplete="off">
         </div>
         <div class="set-row">
-          <span class="who">Fire TV</span>
-          <input class="ipin" id="ip-firetv" inputmode="decimal" placeholder="192.168.0.13" autocomplete="off">
+          <span class="who">Type</span>
+          <select class="sel" id="nd-type">
+            <option value="androidtv">Android TV / Shield</option>
+            <option value="firetv">Fire TV</option>
+          </select>
+        </div>
+        <div class="set-row">
+          <span class="who">IP</span>
+          <input class="ipin" id="nd-host" inputmode="decimal" placeholder="192.168.0.70" autocomplete="off">
+        </div>
+        <div class="set-row">
+          <span class="who">Pièce</span>
+          <input class="ipin" id="nd-room" placeholder="Man Cave" autocomplete="off">
         </div>
         <div class="set-actions">
-          <button class="netbtn" id="saveIps">Enregistrer</button>
+          <button class="netbtn" id="addDev">Ajouter</button>
           <button class="netbtn" id="scanBtn">Scanner le réseau</button>
         </div>
         <p class="scan-note" id="scanNote">Le scan cherche les TV sur le réseau local (~10 s).</p>
         <div id="scanResults"></div>
+
+        <div class="set-h">Marque</div>
+        <div class="set-row">
+          <span class="who">Nom</span>
+          <input class="ipin" id="bd-name" maxlength="24" placeholder="DECK" autocomplete="off">
+        </div>
+        <div class="set-row">
+          <span class="who">Sous-titre</span>
+          <input class="ipin" id="bd-tag" maxlength="40" placeholder="tv control" autocomplete="off">
+        </div>
+        <div class="set-actions">
+          <button class="netbtn" id="saveBrand">Enregistrer la marque</button>
+        </div>
+
       </div>
     </div>
   </section>
 
-  <!-- Modale PIN -->
   <div class="overlay" id="overlay">
     <div class="modal">
-      <h2>Pairing Shield</h2>
-      <p>Un code à 6 caractères (chiffres et lettres A–F) s'affiche sur la Nvidia Shield. Saisis-le ci-dessous pour appairer la télécommande.</p>
+      <h2>Pairing</h2>
+      <p id="pinWho">Un code à 6 caractères (chiffres et lettres A–F) s'affiche sur la TV. Saisis-le ci-dessous.</p>
       <input id="pin" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="6" placeholder="A1B2C3" autocomplete="off">
       <button class="go" id="pinGo">Valider</button>
     </div>
@@ -584,7 +409,7 @@
 <script>
 "use strict";
 
-// ---- Icônes SVG (transport) ----
+// ---- Icônes ----
 const ICON = {
   mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>',
   vol_down: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 12h5"/></svg>',
@@ -600,88 +425,272 @@ const ICON = {
   menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
 };
 
-const DEVICES = [
-  { id: 'shield', name: 'Shield', hasData: true },
-  { id: 'firetv', name: 'Fire TV', hasData: false },
-];
+let state = null;        // dernier /api/state
+let activeRoom = null;   // pièce affichée
+let pinDeviceId = null;  // appareil en cours de pairing
+const openState = {};    // pavés dépliés, par appareil
+let layoutKey = '';      // signature de la structure rendue
 
-const strips = document.getElementById('strips');
-const openState = {}; // mémorise l'ouverture du D-pad par appareil
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// ---- Construction initiale des bandeaux ----
-function buildStrips() {
-  strips.innerHTML = '';
-  for (const d of DEVICES) {
-    const el = document.createElement('section');
-    el.className = 'strip';
-    el.id = 'strip-' + d.id;
-    el.innerHTML = `
-      <div class="strip-head">
-        <span class="led" id="led-${d.id}"></span>
-        <span class="name">${d.name}</span>
-        <span class="state" id="state-${d.id}">—</span>
-      </div>
-      <div class="readout">
-        ${d.hasData ? `<div class="app" id="app-${d.id}">—</div>` : ''}
-        <div class="vu">
-          <div class="meter" id="meter-${d.id}"></div>
-          <div class="pct" id="pct-${d.id}">—</div>
-        </div>
-      </div>
-      <div class="transport">
-        ${tBtn(d.id, 'mute', 'Muet')}
-        ${tBtn(d.id, 'vol_down', 'Vol −')}
-        ${tBtn(d.id, 'vol_up', 'Vol +')}
-        ${tBtn(d.id, 'play_pause', 'Lect.')}
-        ${tBtn(d.id, 'power', 'Alim.', 'danger')}
-      </div>
-      <div class="netrow">
-        <button class="netbtn" data-connect="${d.id}">Connecter</button>
-        <span class="netstat" id="adb-${d.id}">—</span>
-      </div>
-      ${!d.hasData ? `
-      <div class="resync">
-        <span class="lbl">Son suivi</span>
-        <button class="fixbtn" data-fixmute="${d.id}"><span id="mi-${d.id}">—</span></button>
-        <span class="hint" id="hint-${d.id}">appuie si le solo est à l'envers</span>
-      </div>` : ''}
-      <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
-      <div class="dpad-wrap">
-        <div class="dpad">
-          <span></span>${dBtn(d.id,'up')}<span></span>
-          ${dBtn(d.id,'left')}${dBtn(d.id,'ok','OK','center')}${dBtn(d.id,'right')}
-          <span></span>${dBtn(d.id,'down')}<span></span>
-        </div>
-        <div class="dpad-extra">
-          ${dBtn(d.id,'back','Retour')}${dBtn(d.id,'home','Accueil')}${dBtn(d.id,'menu','Menu')}
-        </div>
+// ---- Rendu ----------------------------------------------------------
+
+function roomOf(name) {
+  return (state.rooms || []).find((r) => r.name === name) || null;
+}
+
+function structureKey() {
+  const room = roomOf(activeRoom);
+  const devs = room ? room.devices.map((d) => d.id + d.name).join(',') : '';
+  const scenes = (state.scenes || []).filter((s) => !s.room || s.room === activeRoom)
+    .map((s) => s.id + s.label).join(',');
+  return `${activeRoom}|${devs}|${scenes}|${(state.rooms || []).map((r) => r.name).join(',')}`;
+}
+
+function render(next) {
+  state = next;
+  document.getElementById('brandName').textContent = state.brand?.name || 'DECK';
+  document.getElementById('brandTag').textContent = state.brand?.tagline || '';
+  document.title = state.brand?.name || 'DECK';
+
+  const rooms = state.rooms || [];
+  if (!rooms.length) { renderEmpty(); return; }
+  if (!activeRoom || !roomOf(activeRoom)) activeRoom = rooms[0].name;
+
+  const key = structureKey();
+  if (key !== layoutKey) { layoutKey = key; buildLayout(); }
+  updateLive();
+}
+
+function renderEmpty() {
+  const key = 'EMPTY';
+  if (layoutKey !== key) {
+    layoutKey = key;
+    document.getElementById('roomTabs').innerHTML = '';
+    document.getElementById('main').innerHTML = `
+      <div class="empty">
+        <h2>Aucun appareil</h2>
+        <p>Ajoute tes TV pour commencer.<br>Le scan réseau les trouve automatiquement.</p>
+        <button class="netbtn" id="emptyScan">Scanner le réseau</button>
       </div>`;
-    strips.appendChild(el);
+    document.getElementById('emptyScan').addEventListener('click', () => {
+      document.getElementById('strip-settings').classList.add('open');
+      runScan();
+      document.getElementById('strip-settings').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+  renderDeviceList();
+}
+
+function buildLayout() {
+  // Onglets de pièce
+  const rooms = state.rooms || [];
+  const tabs = document.getElementById('roomTabs');
+  tabs.innerHTML = rooms.length > 1
+    ? rooms.map((r) => `<button class="roomtab${r.name === activeRoom ? ' active' : ''}" data-room="${esc(r.name)}">${esc(r.name)}<span class="n">${r.devices.length}</span></button>`).join('')
+    : '';
+
+  const room = roomOf(activeRoom);
+  const all = state.scenes || [];
+  const roomScenes = all.filter((s) => s.room === activeRoom);
+  const globalScenes = rooms.length > 1 ? all.filter((s) => s.room === null) : [];
+  const sceneBtn = (s) =>
+    `<button class="scene k-${s.kind}" data-scene="${esc(s.id)}">${esc(s.label)}<span class="k">${esc(s.sub || '')}</span></button>`;
+
+  document.getElementById('main').innerHTML = `
+    <p class="section-label">Scènes${rooms.length > 1 ? ' · ' + esc(activeRoom) : ''}</p>
+    <div class="scenes">${roomScenes.map(sceneBtn).join('')}</div>
+    ${globalScenes.length ? `
+      <p class="section-label">Toute la maison</p>
+      <div class="scenes global">${globalScenes.map(sceneBtn).join('')}</div>` : ''}
+    <p class="section-label">Canaux</p>
+    <div id="strips">${room.devices.map(stripHTML).join('')}</div>`;
+
+  for (const d of room.devices) {
+    const el = document.getElementById('strip-' + d.id);
     if (openState[d.id]) el.classList.add('open');
-    // Meter (les deux TV : le volume Fire TV est lu via adb quand disponible)
-    const m = el.querySelector('#meter-' + d.id);
+    const m = el.querySelector('.meter');
     for (let i = 0; i < 20; i++) m.appendChild(document.createElement('i'));
   }
+  renderDeviceList();
 }
 
-function tBtn(dev, key, cap, cls = '') {
-  return `<button class="btn ${cls}" data-dev="${dev}" data-key="${key}">${ICON[key]}<span class="cap">${cap}</span></button>`;
+function stripHTML(d) {
+  const isATV = d.kind === 'androidtv';
+  return `
+  <section class="strip" id="strip-${d.id}">
+    <div class="strip-head">
+      <span class="led" data-led="${d.id}"></span>
+      <span class="name">${esc(d.name)}</span>
+      <span class="state" data-state="${d.id}">—</span>
+    </div>
+    <div class="readout">
+      ${isATV ? `<div class="app" data-app="${d.id}">—</div>` : ''}
+      <div class="vu">
+        <div class="meter"></div>
+        <div class="pct" data-pct="${d.id}">—</div>
+      </div>
+    </div>
+    <div class="transport">
+      ${tBtn(d.id, 'mute', 'Muet')}
+      ${tBtn(d.id, 'vol_down', 'Vol −')}
+      ${tBtn(d.id, 'vol_up', 'Vol +')}
+      ${tBtn(d.id, 'play_pause', 'Lect.')}
+      ${tBtn(d.id, 'power', 'Alim.', 'danger')}
+    </div>
+    <div class="netrow">
+      <button class="netbtn" data-connect="${d.id}">Connecter</button>
+      <span class="netstat" data-adb="${d.id}">—</span>
+    </div>
+    <div class="resync" data-resync="${d.id}">
+      <span class="lbl">Son suivi</span>
+      <button class="fixbtn" data-fixmute="${d.id}"><span data-mi="${d.id}">—</span></button>
+      <span class="hint" data-hint="${d.id}">appuie si le solo est à l'envers</span>
+    </div>
+    <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
+    <div class="dpad-wrap">
+      <div class="dpad">
+        <span></span>${dBtn(d.id,'up')}<span></span>
+        ${dBtn(d.id,'left')}${dBtn(d.id,'ok','OK','center')}${dBtn(d.id,'right')}
+        <span></span>${dBtn(d.id,'down')}<span></span>
+      </div>
+      <div class="dpad-extra">
+        ${dBtn(d.id,'back','Retour')}${dBtn(d.id,'home','Accueil')}${dBtn(d.id,'menu','Menu')}
+      </div>
+    </div>
+  </section>`;
 }
-function dBtn(dev, key, cap, cls = '') {
-  let inner;
-  if (ICON[key]) {
-    inner = ICON[key] + (cap ? `<span class="cap">${cap}</span>` : '');
-  } else {
-    // Bouton central OK : texte seul, sans icône.
-    inner = `<span style="font-size:16px;font-weight:700;letter-spacing:0.1em">${cap || key}</span>`;
+
+function tBtn(id, key, cap, cls = '') {
+  return `<button class="btn ${cls}" data-dev="${id}" data-key="${key}">${ICON[key]}<span class="cap">${cap}</span></button>`;
+}
+function dBtn(id, key, cap, cls = '') {
+  const inner = ICON[key]
+    ? ICON[key] + (cap ? `<span class="cap">${cap}</span>` : '')
+    : `<span style="font-size:16px;font-weight:700;letter-spacing:0.1em">${cap || key}</span>`;
+  return `<button class="btn ${cls}" data-dev="${id}" data-key="${key}">${inner}</button>`;
+}
+
+const ADB_LABEL = {
+  device: ['adb connecté', 'ok'],
+  unauthorized: ['à autoriser sur la TV', 'warn'],
+  offline: ['adb hors ligne', 'bad'],
+  absent: ['adb absent', 'bad'],
+  inconnu: ['—', ''],
+};
+
+function updateLive() {
+  const room = roomOf(activeRoom);
+  if (!room) return;
+
+  // Onglets actifs
+  for (const t of document.querySelectorAll('[data-room]')) {
+    t.classList.toggle('active', t.dataset.room === activeRoom);
   }
-  return `<button class="btn ${cls}" data-dev="${dev}" data-key="${key}">${inner}</button>`;
+
+  // Scène solo « en cours » = seul appareil non muet de la pièce
+  const live = room.devices.filter((d) => !d.muted);
+  for (const el of document.querySelectorAll('.scene.k-solo')) {
+    const id = el.dataset.scene.slice('solo:'.length);
+    el.classList.toggle('live', live.length === 1 && live[0].id === id);
+  }
+
+  let pairing = null;
+  for (const d of room.devices) {
+    const q = (sel) => document.querySelector(sel);
+    const led = q(`[data-led="${d.id}"]`);
+    if (!led) continue;
+    led.className = 'led ' + (!d.online ? '' : d.muted ? 'red' : d.awake ? 'green' : 'amber');
+
+    q(`[data-state="${d.id}"]`).textContent =
+      !d.online ? 'hors ligne'
+      : d.pairing ? 'pairing…'
+      : d.muted ? (d.awake ? 'muet' : 'veille · muet')
+      : (d.awake ? 'en ligne' : 'veille');
+
+    const appEl = q(`[data-app="${d.id}"]`);
+    if (appEl) appEl.textContent = d.app ? appName(d.app) : (d.online ? '—' : '');
+
+    const meter = q(`#strip-${d.id} .meter`);
+    const pct = q(`[data-pct="${d.id}"]`);
+    const vol = typeof d.volume === 'number' ? d.volume : null;
+    meter.classList.toggle('muted', Boolean(d.muted));
+    const lit = vol == null ? 0 : Math.round(vol / 5);
+    [...meter.children].forEach((seg, i) => { seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : ''; });
+    pct.classList.toggle('muted', Boolean(d.muted));
+    pct.textContent = d.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
+
+    const mBtn = q(`.btn[data-dev="${d.id}"][data-key="mute"]`);
+    if (mBtn) mBtn.classList.toggle('armed', Boolean(d.muted));
+
+    const [txt, cls] = ADB_LABEL[d.adb] || ['—', ''];
+    const adbEl = q(`[data-adb="${d.id}"]`);
+    adbEl.textContent = txt;
+    adbEl.className = 'netstat ' + cls;
+
+    // Resync : utile seulement quand l'état n'est pas lu sur la TV
+    const liveSrc = d.muteSource === 'volume' || d.muteSource === 'device';
+    q(`[data-resync="${d.id}"]`).style.display = liveSrc ? 'none' : 'flex';
+    const mi = q(`[data-mi="${d.id}"]`);
+    if (mi) {
+      mi.textContent = d.muted ? 'MUET' : 'ACTIF';
+      mi.parentElement.classList.toggle('muted', Boolean(d.muted));
+    }
+
+    if (d.pairing) pairing = d;
+  }
+
+  // Modale de pairing (premier appareil qui la demande)
+  const anyPairing = pairing || (state.devices || []).find((d) => d.pairing);
+  const overlay = document.getElementById('overlay');
+  if (anyPairing) {
+    pinDeviceId = anyPairing.id;
+    document.getElementById('pinWho').textContent =
+      `Un code à 6 caractères (chiffres et lettres A–F) s'affiche sur « ${anyPairing.name} ». Saisis-le ci-dessous.`;
+    overlay.classList.add('show');
+  } else {
+    pinDeviceId = null;
+    overlay.classList.remove('show');
+  }
 }
 
-buildStrips();
+function appName(pkg) {
+  const map = {
+    'com.google.android.youtube.tv': 'YouTube',
+    'com.netflix.ninja': 'Netflix',
+    'com.spotify.tv.android': 'Spotify',
+    'com.google.android.tvlauncher': 'Accueil',
+    'com.plexapp.android': 'Plex',
+    'com.disney.disneyplus': 'Disney+',
+  };
+  if (map[pkg]) return map[pkg];
+  const tail = String(pkg).split('.').pop();
+  return tail.charAt(0).toUpperCase() + tail.slice(1);
+}
 
-// ---- Interactions ----
+// ---- Réglages : liste d'appareils ------------------------------------
+
+function renderDeviceList() {
+  const list = document.getElementById('deviceList');
+  const devices = state?.devices || [];
+  list.innerHTML = devices.length
+    ? devices.map((d) => `
+      <div class="devrow">
+        <div class="meta">
+          <div class="dn">${esc(d.name)}</div>
+          <div class="dd">${esc(d.type)} · ${esc(d.host)} · ${esc(d.room)}</div>
+        </div>
+        <button class="del" data-delete="${d.id}">Suppr.</button>
+      </div>`).join('')
+    : '<p class="scan-note">Aucun appareil enregistré.</p>';
+}
+
+// ---- Actions ---------------------------------------------------------
+
 document.addEventListener('click', async (e) => {
+  const tab = e.target.closest('[data-room]');
+  if (tab) { activeRoom = tab.dataset.room; layoutKey = ''; render(state); return; }
+
   const scene = e.target.closest('[data-scene]');
   if (scene) return void fireScene(scene.dataset.scene);
 
@@ -690,18 +699,15 @@ document.addEventListener('click', async (e) => {
     const id = toggle.dataset.toggle;
     const strip = document.getElementById('strip-' + id);
     strip.classList.toggle('open');
-    openState[id] = strip.classList.contains('open');
+    if (id !== 'settings') openState[id] = strip.classList.contains('open');
     return;
   }
 
   const use = e.target.closest('[data-use]');
-  if (use) {
-    const { use: role, host } = use.dataset;
-    return void saveSettings(
-      role === 'shield' ? { shieldHost: host } : { firetvHost: host },
-      `${role === 'shield' ? 'Shield' : 'Fire TV'} → ${host}`,
-    );
-  }
+  if (use) return void addFromScan(use.dataset.use, use.dataset.host);
+
+  const del = e.target.closest('[data-delete]');
+  if (del) return void removeDevice(del.dataset.delete);
 
   const conn = e.target.closest('[data-connect]');
   if (conn) return void connectDev(conn.dataset.connect);
@@ -713,58 +719,108 @@ document.addEventListener('click', async (e) => {
   if (btn) return void fireKey(btn.dataset.dev, btn.dataset.key);
 });
 
-// Force une reconnexion adb (bouton « Connecter ») et rapporte l'état.
-async function connectDev(dev) {
-  const label = dev === 'shield' ? 'Shield' : 'Fire TV';
-  toast('Connexion…');
+async function post(url, body) {
+  const opts = { method: 'POST' };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(url, opts);
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, j };
+}
+
+async function fireKey(id, key) {
   try {
-    const r = await fetch(`/api/${dev}/connect`, { method: 'POST' });
-    const j = await r.json().catch(() => ({}));
-    const msg = {
-      device: `${label} : adb connecté`,
-      unauthorized: `Autorise le débogage ADB sur la TV (${label})`,
-      offline: `${label} injoignable — TV allumée ? débogage réseau activé ?`,
+    const { ok, j } = await post(`/api/device/${id}/key/${key}`);
+    if (!ok) toast(j.error || 'Échec'); else refresh();
+  } catch { toast('Réseau injoignable'); }
+}
+
+async function fireScene(id) {
+  try {
+    const { ok, j } = await post('/api/scene/' + encodeURIComponent(id));
+    if (!ok) return toast(j.error || 'Échec de la scène');
+    if (j.errors?.length) toast(j.errors.map((e) => `${e.device} : ${e.error}`).join(' · '));
+    refresh();
+  } catch { toast('Réseau injoignable'); }
+}
+
+async function connectDev(id) {
+  toast('Connexion…', true);
+  try {
+    const { j } = await post(`/api/device/${id}/connect`);
+    toast({
+      device: 'adb connecté',
+      unauthorized: 'Autorise le débogage ADB sur la TV',
+      offline: 'TV injoignable — allumée ? débogage réseau activé ?',
       absent: 'adb non installé sur l’hôte',
-    };
-    toast(msg[j.adb] || `${label} injoignable`);
+    }[j.adb] || 'TV injoignable', j.adb === 'device');
     refresh();
   } catch { toast('Réseau injoignable'); }
 }
 
-// ---- Réglages / découverte réseau ----
-async function loadSettings() {
+async function fixMute(id) {
+  const d = (state.devices || []).find((x) => x.id === id);
   try {
-    const r = await fetch('/api/settings');
-    const j = await r.json();
-    document.getElementById('ip-shield').value = j.shieldHost || '';
-    document.getElementById('ip-firetv').value = j.firetvHost || '';
-  } catch { /* silencieux : la section reste vide */ }
+    const { ok, j } = await post(`/api/device/${id}/mute`, { muted: !d?.muted });
+    if (!ok) return toast(j.error || 'Erreur');
+    toast(!d?.muted ? 'Suivi : MUET' : 'Suivi : ACTIF', true);
+    refresh();
+  } catch { toast('Réseau injoignable'); }
 }
 
-async function saveSettings(body, okMsg) {
+async function removeDevice(id) {
   try {
-    const r = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const r = await fetch(`/api/devices/${id}`, { method: 'DELETE' });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) return toast(j.error || 'Réglages refusés');
-    toast(okMsg || 'Réglages enregistrés');
-    loadSettings();
+    if (!r.ok) return toast(j.error || 'Suppression impossible');
+    toast('Appareil supprimé', true);
+    layoutKey = '';
     refresh();
   } catch { toast('Réseau injoignable'); }
 }
 
-function saveIps() {
-  const body = {};
-  const sh = document.getElementById('ip-shield').value.trim();
-  const ft = document.getElementById('ip-firetv').value.trim();
-  if (sh) body.shieldHost = sh;
-  if (ft) body.firetvHost = ft;
-  if (!Object.keys(body).length) return toast('Saisis au moins une IP');
-  saveSettings(body);
+document.getElementById('addDev').addEventListener('click', async () => {
+  const body = {
+    name: document.getElementById('nd-name').value.trim(),
+    type: document.getElementById('nd-type').value,
+    host: document.getElementById('nd-host').value.trim(),
+    room: document.getElementById('nd-room').value.trim() || 'Salon',
+  };
+  const { ok, j } = await post('/api/devices', body);
+  if (!ok) return toast(j.error || 'Ajout impossible');
+  toast(`${body.name} ajouté`, true);
+  ['nd-name', 'nd-host'].forEach((i) => { document.getElementById(i).value = ''; });
+  layoutKey = '';
+  refresh();
+});
+
+async function addFromScan(type, host) {
+  const room = document.getElementById('nd-room').value.trim() || activeRoom || 'Salon';
+  const name = document.getElementById('nd-name').value.trim()
+    || (type === 'androidtv' ? 'Android TV' : 'Fire TV') + ' ' + host.split('.').pop();
+  const { ok, j } = await post('/api/devices', { name, type, host, room });
+  if (!ok) return toast(j.error || 'Ajout impossible');
+  toast(`${name} ajouté`, true);
+  layoutKey = '';
+  refresh();
+  runScan();
 }
+
+document.getElementById('saveBrand').addEventListener('click', async () => {
+  const body = {};
+  const n = document.getElementById('bd-name').value.trim();
+  const t = document.getElementById('bd-tag').value.trim();
+  if (n) body.brandName = n;
+  body.tagline = t;
+  const { ok, j } = await post('/api/settings', body);
+  if (!ok) return toast(j.error || 'Réglages refusés');
+  toast('Marque enregistrée', true);
+  refresh();
+});
+
+// ---- Scan ------------------------------------------------------------
 
 async function runScan() {
   const btn = document.getElementById('scanBtn');
@@ -777,13 +833,10 @@ async function runScan() {
     const r = await fetch('/api/discover', { method: 'POST' });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.status);
-    const rows = [];
-    for (const c of j.shield || []) {
-      rows.push(foundRow(c.host, 'Android TV Remote', 'shield'));
-    }
-    for (const c of j.firetv || []) {
-      rows.push(foundRow(c.host, c.model ? `adb · ${c.model}` : 'adb', 'firetv'));
-    }
+    const rows = [
+      ...(j.androidtv || []).map((c) => foundRow(c, 'androidtv', 'Android TV Remote')),
+      ...(j.firetv || []).map((c) => foundRow(c, 'firetv', c.model ? 'adb · ' + c.model : 'adb')),
+    ];
     out.innerHTML = rows.join('');
     const nets = (j.subnets || []).map((s) => s + '.x').join(', ');
     note.textContent = rows.length
@@ -796,207 +849,75 @@ async function runScan() {
   }
 }
 
-function foundRow(host, kindLabel, role) {
-  const target = role === 'shield' ? 'Shield' : 'Fire TV';
-  return `<div class="found">
-    <div><div class="ip">${host}</div><div class="kind">${kindLabel}</div></div>
-    <button class="use" data-use="${role}" data-host="${host}">→ ${target}</button>
+function foundRow(c, type, kindLabel) {
+  return `<div class="devrow${c.known ? ' known' : ''}">
+    <div class="meta">
+      <div class="dn" style="font-family:var(--mono);font-size:13px;color:var(--phosphor)">${esc(c.host)}</div>
+      <div class="dd">${esc(kindLabel)}${c.known ? ' · déjà ajouté' : ''}</div>
+    </div>
+    ${c.known ? '' : `<button class="use" data-use="${type}" data-host="${esc(c.host)}">Ajouter</button>`}
   </div>`;
 }
-
-document.getElementById('saveIps').addEventListener('click', saveIps);
 document.getElementById('scanBtn').addEventListener('click', runScan);
 
-// Réaligne le suivi mute sans toucher la TV (corrige un décalage de phase).
-async function fixMute(dev) {
-  const cur = Boolean(lastState?.[dev]?.muted);
-  try {
-    const r = await fetch('/api/firetv/mute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ muted: !cur }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return toast(j.error || 'Erreur resync');
-    toast(!cur ? 'Suivi : MUET' : 'Suivi : ACTIF');
-    refresh();
-  } catch { toast('Réseau injoignable'); }
-}
+// ---- PIN -------------------------------------------------------------
 
-async function fireKey(dev, key) {
-  try {
-    const r = await fetch(`/api/key/${dev}/${key}`, { method: 'POST' });
-    if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      toast(`${dev} : ${j.error || r.status}`);
-    } else {
-      refresh(); // reflète vite mute/volume
-    }
-  } catch { toast('Réseau injoignable'); }
-}
-
-async function fireScene(name) {
-  try {
-    const r = await fetch(`/api/scene/${name}`, { method: 'POST' });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return toast(j.error || `Scène ${name} : ${r.status}`);
-    if (j.errors && j.errors.length) {
-      toast(j.errors.map(e => `${e.device} hors ligne`).join(' · '));
-    }
-    refresh();
-  } catch { toast('Réseau injoignable'); }
-}
-
-// ---- PIN ----
-const overlay = document.getElementById('overlay');
 document.getElementById('pinGo').addEventListener('click', submitPin);
 document.getElementById('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
 
 async function submitPin() {
   const input = document.getElementById('pin');
-  const pin = input.value.trim().toUpperCase();
-  if (!/^[0-9A-F]{6}$/.test(pin)) return toast('Code : 6 caractères (0-9, A-F)');
+  const code = input.value.trim().toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(code)) return toast('Code : 6 caractères (0-9, A-F)');
+  if (!pinDeviceId) return toast('Aucun pairing en cours');
   try {
-    const r = await fetch('/api/shield/pin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return toast(j.error || 'PIN refusé');
+    const { ok, j } = await post(`/api/device/${pinDeviceId}/pin`, { pin: code });
+    if (!ok) return toast(j.error || 'Code refusé');
     input.value = '';
-    toast('Code envoyé…');
+    toast('Code envoyé…', true);
   } catch { toast('Réseau injoignable'); }
 }
 
-// ---- Rendu de l'état ----
-function ledClass(s) {
-  if (!s.online) return '';
-  if (s.muted) return 'red';
-  if (!s.awake) return 'amber';
-  return 'green';
-}
+// ---- Sondage / divers -------------------------------------------------
 
-let lastState = null;
-function render(state) {
-  lastState = state;
-  // Modale de pairing
-  overlay.classList.toggle('show', Boolean(state.shield?.pairing));
-
-  for (const d of DEVICES) {
-    const s = state[d.id] || {};
-    document.getElementById('led-' + d.id).className = 'led ' + ledClass(s);
-
-    let txt;
-    if (!s.configured) txt = 'non configuré';
-    else if (!s.online) txt = 'hors ligne';
-    else if (s.muted) txt = s.awake ? 'muet' : 'veille · muet';
-    else txt = s.awake ? 'en ligne' : 'veille';
-    document.getElementById('state-' + d.id).textContent = txt;
-
-    // Bouton mute « armé » (rouge) quand muet
-    const mBtn = document.querySelector(`.btn[data-dev="${d.id}"][data-key="mute"]`);
-    if (mBtn) mBtn.classList.toggle('armed', Boolean(s.muted));
-
-    // Étiquette du suivi mute (bouton resync, Fire TV).
-    // Si l'état est lu directement sur la TV (volume absolu ou dumpsys), le
-    // resync manuel devient inutile : on l'indique et on neutralise le bouton.
-    const mi = document.getElementById('mi-' + d.id);
-    if (mi) {
-      mi.textContent = s.muted ? 'MUET' : 'ACTIF';
-      mi.parentElement.classList.toggle('muted', Boolean(s.muted));
-      const live = s.muteSource === 'volume' || s.muteSource === 'device';
-      mi.parentElement.disabled = live;
-      mi.parentElement.style.opacity = live ? '0.55' : '';
-      const hint = document.getElementById('hint-' + d.id);
-      if (hint) {
-        hint.textContent = live
-          ? (s.muteSource === 'volume' ? 'volume lu sur la TV — sync auto' : 'lu sur la TV — sync auto')
-          : "appuie si le solo est à l'envers";
-      }
-    }
-
-    // État du canal adb (les deux bandeaux)
-    const adbEl = document.getElementById('adb-' + d.id);
-    if (adbEl) {
-      const map = {
-        device: ['adb connecté', 'ok'],
-        unauthorized: ['à autoriser sur la TV', 'warn'],
-        offline: ['adb hors ligne', 'bad'],
-        absent: ['adb absent', 'bad'],
-        inconnu: ['—', ''],
-        off: ['—', ''],
-      };
-      const [txt, cls] = map[s.adb] || ['—', ''];
-      adbEl.textContent = txt;
-      adbEl.className = 'netstat ' + cls;
-    }
-
-    if (d.hasData) {
-      document.getElementById('app-' + d.id).textContent = s.app ? appName(s.app) : (s.online ? '—' : '');
-    }
-    const meter = document.getElementById('meter-' + d.id);
-    const pctEl = document.getElementById('pct-' + d.id);
-    const vol = (typeof s.volume === 'number') ? s.volume : null;
-    meter.classList.toggle('muted', Boolean(s.muted));
-    const lit = vol == null ? 0 : Math.round(vol / 5);
-    [...meter.children].forEach((seg, i) => {
-      seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : '';
-    });
-    pctEl.classList.toggle('muted', Boolean(s.muted));
-    pctEl.textContent = s.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
-  }
-}
-
-// Nettoie un nom de package en libellé lisible
-function appName(pkg) {
-  const map = {
-    'com.google.android.youtube.tv': 'YouTube',
-    'com.netflix.ninja': 'Netflix',
-    'com.spotify.tv.android': 'Spotify',
-    'com.google.android.tvlauncher': 'Accueil',
-    'com.plexapp.android': 'Plex',
-    'com.disney.disneyplus': 'Disney+',
-  };
-  if (map[pkg]) return map[pkg];
-  const tail = pkg.split('.').pop();
-  return tail.charAt(0).toUpperCase() + tail.slice(1);
-}
-
-// ---- Sondage ----
 let failCount = 0;
 async function refresh() {
   try {
     const r = await fetch('/api/state', { cache: 'no-store' });
-    const state = await r.json();
+    const next = await r.json();
     failCount = 0;
-    render(state);
+    render(next);
   } catch {
     if (++failCount === 3) toast('Serveur injoignable');
   }
 }
 
-// ---- Toast ----
 let toastTimer;
-function toast(msg) {
+function toast(msg, ok = false) {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.classList.add('show');
+  t.className = 'toast show' + (ok ? ' ok' : '');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ---- Horloge ----
 function tick() {
   const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  document.getElementById('clock').textContent = `${hh}:${mm} · salon`;
+  document.getElementById('clock').textContent =
+    String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+}
+
+async function loadBrandInputs() {
+  try {
+    const j = await (await fetch('/api/settings')).json();
+    document.getElementById('bd-name').value = j.brandName || '';
+    document.getElementById('bd-tag').value = j.tagline || '';
+  } catch { /* silencieux */ }
 }
 
 tick();
 setInterval(tick, 10000);
-loadSettings();
+loadBrandInputs();
 refresh();
 setInterval(refresh, 2500);
 </script>

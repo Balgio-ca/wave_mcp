@@ -1,25 +1,22 @@
-// Contrôleur Nvidia Shield.
+// Contrôleur Android TV / Google TV (Nvidia Shield, Chromecast Google TV…).
 //
 // Deux canaux complémentaires :
 //   1. Protocole Android TV Remote v2 (paquet androidtv-remote) : pairing PIN,
 //      touches, power, app au premier plan, événements volume.
 //      Événements : secret, ready, powered, volume, current_app, unpaired,
 //      error — il n'y a PAS d'événement close.
-//   2. Canal auxiliaire adb (port 5555, si « débogage réseau » est activé sur
-//      le Shield) : VÉRITÉ TERRAIN pour volume/mute/éveil, et contrôle de
-//      volume ABSOLU — la base du mute fiable.
+//   2. Canal auxiliaire adb (« débogage réseau ») : VÉRITÉ TERRAIN pour
+//      volume/mute/éveil et contrôle de volume ABSOLU.
 //
 // MUTE FIABLE — ordre de préférence (voir setMuted) :
 //   'volume'  : niveau absolu écrit + vérifié par relecture via adb ;
-//   'device'  : mute lu dans dumpsys audio + touche vérifiée ;
+//   'device'  : mute lu dans dumpsys audio ;
 //   'events'  : boucle fermée sur les événements volume du protocole remote ;
 //   'assumed' : bascule optimiste (dernier recours).
 //
-// Fiabilité connexion : générations (_gen) pour invalider toute continuation
-// ou sonde d'une ancienne connexion/hôte ; l'instance AndroidRemote précédente
-// est TOUJOURS stoppée avant d'en créer une nouvelle (sinon les anciennes
-// sockets continuent d'émettre et corrompent l'état) ; reconnexion en backoff
-// exponentiel, gardée contre l'empilement.
+// Une instance par appareil du registre. Les générations (_gen) invalident
+// toute continuation/sonde d'une connexion périmée ; l'instance AndroidRemote
+// précédente est TOUJOURS stoppée avant d'en créer une nouvelle.
 
 import net from 'node:net';
 import fs from 'node:fs';
@@ -41,81 +38,58 @@ const RECONNECT_MIN = 2000;
 const RECONNECT_MAX = 60000;
 const PROBE_INTERVAL = 5000;
 const PROBE_TIMEOUT = 1500;
-const ADB_PORT = 5555;
-const EVENT_WAIT = 1200;        // attente d'un événement volume après une touche
+const PAIRING_PORT = 6467;
+const REMOTE_PORT = 6466;
+const EVENT_WAIT = 1200;
 const DEFAULT_UNMUTE_PCT = 0.4;
 
-export class ShieldController {
-  constructor() {
-    this.certPath = path.join(config.dataDir, 'shield-cert.json');
-    this.levelPath = path.join(config.dataDir, 'shield-level.json');
+export class AndroidTVController {
+  constructor(device) {
+    this.device = device;
+    this.certPath = path.join(config.dataDir, `cert-${device.id}.json`);
+    this.levelPath = path.join(config.dataDir, `level-${device.id}.json`);
 
     this.remote = null;
     this.connecting = false;
     this.reconnectTimer = null;
+    this.probeTimer = null;
     this.backoff = RECONNECT_MIN;
-    this._started = false;
-    this._gen = 0;              // invalide continuations/sondes obsolètes
-    this._volumeWaiters = [];   // resolvers en attente d'un événement volume
+    this._gen = 0;
+    this._volumeWaiters = [];
     this._savedLevel = this._loadLevel();
+    this._stopped = false;
 
     this.status = {
-      configured: Boolean(config.shield.host),
       online: false,
       awake: false,
       paired: false,
       pairing: false,
       app: null,
-      volume: null,             // pourcentage 0..100
+      volume: null,
       muted: false,
-      // Canal auxiliaire adb : 'device' | 'unauthorized' | 'offline' |
-      // 'absent' | 'inconnu' | 'off' (jamais tenté)
-      adb: 'off',
-      // Source de l'état de mute affiché/utilisé.
+      adb: 'inconnu',
       muteSource: 'assumed',
     };
   }
 
-  get adbTarget() {
-    return `${config.shield.host}:${ADB_PORT}`;
-  }
+  get id() { return this.device.id; }
+  get adbTarget() { return `${this.device.host}:${this.device.port}`; }
 
   start() {
-    if (!this.status.configured) {
-      console.warn('[shield] SHIELD_HOST non défini — contrôleur inactif.');
-      return;
-    }
-    this._begin();
-  }
-
-  _begin() {
-    if (this._started) return;
-    this._started = true;
     this._loadCert();
     this.connect();
-    setInterval(() => this._probe(), PROBE_INTERVAL);
+    this.probeTimer = setInterval(() => this._probe(), PROBE_INTERVAL);
   }
 
-  // Change l'hôte à chaud (réglages / découverte réseau).
-  setHost(host) {
-    if (host === config.shield.host) return;
-    console.log(`[shield] Nouvel hôte : ${host}`);
+  // Arrêt complet (appareil supprimé ou reconfiguré).
+  stop() {
+    this._stopped = true;
     this._gen++;
-    forgetVolumeCmd(this.adbTarget);
-    config.shield.host = host;
-    this.status.configured = Boolean(host);
     this._clearReconnect();
+    if (this.probeTimer) { clearInterval(this.probeTimer); this.probeTimer = null; }
     try { this.remote?.stop?.(); } catch { /* ignore */ }
     this.remote = null;
-    this.connecting = false;
-    this.backoff = RECONNECT_MIN;
-    Object.assign(this.status, {
-      online: false, awake: false, pairing: false,
-      app: null, volume: null, adb: 'inconnu', muteSource: 'assumed',
-    });
-    if (!this.status.configured) return;
-    if (!this._started) this._begin();
-    else this._scheduleReconnect(0);
+    forgetVolumeCmd(this.adbTarget);
   }
 
   // ---- Persistance -----------------------------------------------------
@@ -124,7 +98,7 @@ export class ShieldController {
     try {
       this.cert = JSON.parse(fs.readFileSync(this.certPath, 'utf8'));
       this.status.paired = Boolean(this.cert?.key && this.cert?.cert);
-      if (this.status.paired) console.log('[shield] Certificat chargé depuis', this.certPath);
+      if (this.status.paired) console.log(`[${this.device.name}] Certificat chargé.`);
     } catch {
       this.cert = undefined;
       this.status.paired = false;
@@ -137,9 +111,9 @@ export class ShieldController {
       fs.writeFileSync(this.certPath, JSON.stringify(cert), { mode: 0o600 });
       this.cert = cert;
       this.status.paired = true;
-      console.log('[shield] Certificat enregistré.');
+      console.log(`[${this.device.name}] Certificat enregistré.`);
     } catch (err) {
-      console.error('[shield] Échec écriture certificat :', err.message);
+      console.error(`[${this.device.name}] Échec écriture certificat :`, err.message);
     }
   }
 
@@ -163,27 +137,25 @@ export class ShieldController {
     try {
       fs.mkdirSync(config.dataDir, { recursive: true });
       fs.writeFileSync(this.levelPath, JSON.stringify({ level }));
-    } catch (err) {
-      console.error('[shield] Échec écriture niveau :', err.message);
-    }
+    } catch { /* best-effort */ }
   }
 
   // ---- Connexion remote v2 --------------------------------------------
 
   async connect() {
-    if (this.connecting) return;
+    if (this.connecting || this._stopped) return;
     this.connecting = true;
     const gen = this._gen;
     this._clearReconnect();
 
     // Stoppe TOUJOURS l'instance précédente : ses sockets vivantes
-    // continueraient d'émettre des événements et de corrompre l'état.
+    // continueraient d'émettre et de corrompre l'état.
     try { this.remote?.stop?.(); } catch { /* ignore */ }
 
-    const remote = new AndroidRemote(config.shield.host, {
-      pairing_port: config.shield.pairingPort,
-      remote_port: config.shield.remotePort,
-      service_name: config.shield.serviceName,
+    const remote = new AndroidRemote(this.device.host, {
+      pairing_port: PAIRING_PORT,
+      remote_port: REMOTE_PORT,
+      service_name: config.brandName || 'deck',
       cert: this.cert,
     });
     this.remote = remote;
@@ -198,7 +170,7 @@ export class ShieldController {
     } catch (err) {
       if (gen !== this._gen) return;
       this.connecting = false;
-      console.error('[shield] connect a échoué :', err?.message || err);
+      console.error(`[${this.device.name}] connect a échoué :`, err?.message || err);
       this._scheduleReconnect();
     }
   }
@@ -209,7 +181,7 @@ export class ShieldController {
     remote.on('secret', () => {
       if (!fresh()) return;
       this.status.pairing = true;
-      console.log('[shield] En attente du code PIN…');
+      console.log(`[${this.device.name}] En attente du code PIN…`);
     });
 
     remote.on('ready', () => {
@@ -219,7 +191,7 @@ export class ShieldController {
       this.backoff = RECONNECT_MIN;
       const cert = remote.getCertificate();
       if (cert?.key && cert?.cert) this._saveCert(cert);
-      console.log('[shield] Prêt.');
+      console.log(`[${this.device.name}] Prêt.`);
     });
 
     remote.on('powered', (powered) => {
@@ -239,8 +211,6 @@ export class ShieldController {
       if (this.status.muteSource !== 'volume' && this.status.muteSource !== 'device') {
         this.status.muteSource = 'events';
       }
-      this._volumeEventTime = Date.now();
-      // Réveille les attentes de boucle fermée.
       for (const resolve of this._volumeWaiters.splice(0)) resolve(v);
     });
 
@@ -252,21 +222,21 @@ export class ShieldController {
 
     remote.on('unpaired', () => {
       if (!fresh()) return;
-      console.warn('[shield] Dé-pairé — suppression du certificat et re-pairing.');
+      console.warn(`[${this.device.name}] Dé-pairé — re-pairing.`);
       this._deleteCert();
       this.status.pairing = false;
       this._recreate();
     });
 
     remote.on('error', (err) => {
-      console.error('[shield] error :', err?.message || err);
+      console.error(`[${this.device.name}] error :`, err?.message || err);
     });
   }
 
   _guardInternal(remote) {
     for (const mgr of [remote.remoteManager, remote.pairingManager]) {
       if (mgr && typeof mgr.on === 'function' && mgr.listenerCount('error') === 0) {
-        mgr.on('error', (e) => console.error('[shield] (interne) error :', e?.error || e?.message || e));
+        mgr.on('error', (e) => console.error(`[${this.device.name}] (interne) :`, e?.error || e?.message || e));
       }
     }
   }
@@ -279,14 +249,13 @@ export class ShieldController {
   }
 
   _scheduleReconnect(delay) {
-    if (this.reconnectTimer || this.connecting) return;
+    if (this.reconnectTimer || this.connecting || this._stopped) return;
     const wait = delay ?? this.backoff;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
     }, wait);
     this.backoff = Math.min(this.backoff * 2, RECONNECT_MAX);
-    if (wait > 0) console.log(`[shield] Reconnexion dans ${Math.round(wait / 1000)} s`);
   }
 
   _clearReconnect() {
@@ -298,19 +267,16 @@ export class ShieldController {
 
   // ---- Sondes ----------------------------------------------------------
 
-  // Sonde TCP du port remote (présence) + relevé adb (vérité terrain audio).
   _probe() {
-    if (!this.status.configured) return;
+    if (this._stopped) return;
     const gen = this._gen;
-    const host = config.shield.host;
-
-    const sock = net.connect({ host, port: config.shield.remotePort });
+    const sock = net.connect({ host: this.device.host, port: REMOTE_PORT });
     let done = false;
     const finish = (ok) => {
       if (done) return;
       done = true;
       sock.destroy();
-      if (gen !== this._gen || host !== config.shield.host) return; // obsolète
+      if (gen !== this._gen) return;
       const was = this.status.online;
       this.status.online = ok;
       if (!ok) {
@@ -318,7 +284,7 @@ export class ShieldController {
         this.status.app = null;
         if (this.status.paired && !this.connecting) this._scheduleReconnect();
       }
-      if (was !== ok) console.log(`[shield] ${ok ? 'en ligne' : 'hors ligne'}`);
+      if (was !== ok) console.log(`[${this.device.name}] ${ok ? 'en ligne' : 'hors ligne'}`);
     };
     sock.setTimeout(PROBE_TIMEOUT);
     sock.once('connect', () => finish(true));
@@ -328,13 +294,13 @@ export class ShieldController {
     this._sidecarPoll(gen);
   }
 
-  // Relevé du canal adb : état + volume/mute/éveil réels.
+  // Canal adb : vérité terrain volume/mute/éveil (best-effort).
   async _sidecarPoll(gen) {
     const target = this.adbTarget;
     await withLock(async () => {
       if (gen !== this._gen) return;
       const state = await recoverTarget(target);
-      if (gen !== this._gen || target !== this.adbTarget) return;
+      if (gen !== this._gen) return;
       this.status.adb = state;
       if (state !== 'device') return;
       const vol = await readVolume(target);
@@ -354,11 +320,11 @@ export class ShieldController {
       }
       this.status.awake = await isAwakeUnlocked(target);
       this.status.online = true;
-    }).catch(() => { /* sonde best-effort */ });
+    }).catch(() => { /* best-effort */ });
   }
 
-  // Reconnexion adb à la demande (bouton « Connecter » de l'UI).
-  async connectSidecar() {
+  // Reconnexion adb à la demande (bouton « Connecter »).
+  async connectAdb() {
     const gen = this._gen;
     const target = this.adbTarget;
     return withLock(async () => {
@@ -377,8 +343,8 @@ export class ShieldController {
   }
 
   _assertReady() {
-    if (this.status.pairing) throw new Error('Shield en attente de pairing');
-    if (!this._ready()) throw new Error('Shield hors ligne');
+    if (this.status.pairing) throw new Error(`${this.device.name} en attente de pairing`);
+    if (!this._ready()) throw new Error(`${this.device.name} hors ligne`);
   }
 
   sendPin(code) {
@@ -388,7 +354,6 @@ export class ShieldController {
     this.remote.sendCode(String(code));
   }
 
-  // Attend un événement volume du protocole remote (boucle fermée).
   _awaitVolumeEvent(ms) {
     return new Promise((resolve) => {
       const timer = setTimeout(() => resolve(null), ms);
@@ -408,22 +373,20 @@ export class ShieldController {
     this.remote.sendKey(RemoteKeyCode[codeName], RemoteDirection.SHORT);
   }
 
-  // Amène le mute à l'état voulu, par le canal le plus fiable disponible.
   async setMuted(desired) {
-    // 1) Volume absolu via adb (écrit + vérifié) — la voie royale.
+    // 1) Volume absolu via adb (écrit + vérifié).
     if (this.status.adb === 'device') {
       const gen = this._gen;
       const handled = await withLock(async () => {
-        if (gen !== this._gen) return true; // config changée : abandonne proprement
+        if (gen !== this._gen) return true;
         const target = this.adbTarget;
         const vol = await readVolume(target);
         if (!vol) return false;
         if (vol.level > 0) this._saveLevel(vol.level);
-        const isMuted = vol.level === 0;
-        if (isMuted === desired) {
+        if ((vol.level === 0) === desired) {
           this.status.muteSource = 'volume';
           this.status.volume = Math.round((vol.level / vol.max) * 100);
-          this.status.muted = isMuted;
+          this.status.muted = vol.level === 0;
           return true;
         }
         const targetLevel = desired
@@ -441,33 +404,33 @@ export class ShieldController {
       if (handled) return;
     }
 
-    // 2) Touche mute via le protocole remote, boucle fermée sur l'événement
-    //    volume ; à défaut, bascule optimiste.
+    // 2) Touche mute + boucle fermée sur l'événement volume.
     this._assertReady();
     if (this.status.muted === desired) return;
     this.remote.sendKey(RemoteKeyCode[KEYS.mute.shield], RemoteDirection.SHORT);
     const evt = await this._awaitVolumeEvent(EVENT_WAIT);
     if (evt) {
-      // L'événement a mis l'état à jour ; s'il n'a pas produit l'état voulu,
-      // une seconde tentative unique.
       if (this.status.muted !== desired) {
         this.remote.sendKey(RemoteKeyCode[KEYS.mute.shield], RemoteDirection.SHORT);
         await this._awaitVolumeEvent(EVENT_WAIT);
       }
     } else {
-      // Aucun retour : optimiste, corrigé par le prochain événement/sonde.
       this.status.muted = desired;
       if (this.status.muteSource === 'events') this.status.muteSource = 'assumed';
     }
   }
 
-  // Éteint de façon idempotente : ne bascule l'alimentation que si allumé.
   standby() {
     this._assertReady();
     if (this.status.awake) this.remote.sendPower();
   }
 
+  // Pas de suivi d'intention manuel pour ce type (mute déjà rapporté).
+  setMuteIntent(muted) {
+    this.status.muted = Boolean(muted);
+  }
+
   getState() {
-    return { ...this.status };
+    return { ...this.device, ...this.status, kind: 'androidtv' };
   }
 }

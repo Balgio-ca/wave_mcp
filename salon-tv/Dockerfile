@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-# adb pour piloter la Fire TV (paquet android-tools d'Alpine).
+# adb : pilotage Fire TV + canal de vérité terrain audio des Android TV.
 RUN apk add --no-cache android-tools
 
 WORKDIR /app

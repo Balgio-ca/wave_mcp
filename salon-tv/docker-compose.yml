@@ -1,18 +1,31 @@
 services:
-  salon-tv:
+  deck:
     build: .
-    container_name: salon-tv
-    # OBLIGATOIRE : le pairing du Shield (mDNS/TLS) et adb échouent en mode bridge.
+    container_name: deck
+    # OBLIGATOIRE : le pairing Android TV (mDNS/TLS), adb et le scan réseau
+    # échouent tous en mode bridge.
     network_mode: host
     restart: unless-stopped
     environment:
-      # --- Adresses des TV (modifiables ici à tout moment) ---
-      SHIELD_HOST: "192.168.0.70"   # Nvidia Shield Pro
-      FIRETV_HOST: "192.168.0.13"   # TCL Fire TV (« mathieu's TV »)
-      FIRETV_PORT: "5555"
-      # --- Service ---
       PORT: "8099"
       DATA_DIR: "/app/data"
+      # Marque affichée (modifiable ensuite dans les réglages de l'app).
+      BRAND_NAME: "DECK"
+      TAGLINE: "tv control"
+      # --- Amorçage (facultatif) ---
+      # Au TOUT premier démarrage, si data/devices.json n'existe pas encore,
+      # ces variables créent automatiquement deux appareils. Ensuite, tout se
+      # gère dans l'app (scan réseau / ajout manuel) et elles sont ignorées.
+      SHIELD_HOST: "192.168.0.70"
+      FIRETV_HOST: "192.168.0.13"
+      FIRETV_PORT: "5555"
     volumes:
-      # Persiste le certificat de pairing Shield et l'intent mute Fire TV.
+      # Persiste le registre d'appareils, les scènes, les certificats de
+      # pairing et les niveaux audio mémorisés. À conserver.
       - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8099/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

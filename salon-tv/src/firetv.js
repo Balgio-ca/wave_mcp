@@ -1,21 +1,20 @@
-// Contrôleur TCL Fire TV via ADB sur TCP (port 5555).
+// Contrôleur Fire TV (Amazon) via ADB sur TCP.
 //
-// La Fire TV n'a pas les services Google : le protocole Shield ne marche pas.
+// Pas de services Google : le protocole Android TV Remote v2 ne marche pas.
 // Tout passe par adb (couche partagée sérialisée, voir adb.js).
 //
 // MUTE FIABLE — plus de bascule aveugle. Ordre de préférence :
-//   1. 'volume' : contrôle ABSOLU du volume (`media volume --set`). Mute =
-//      mémoriser le niveau puis écrire 0 ; unmute = restaurer. Écriture
-//      VÉRIFIÉE par relecture. L'état affiché est l'état réel, relu à chaque
-//      sonde — la télécommande physique ne peut plus désynchroniser l'app.
-//   2. 'device' : la TV n'accepte pas les commandes volume mais expose son
-//      mute dans dumpsys audio -> touche MUTE + relecture.
+//   1. 'volume' : contrôle ABSOLU du volume. Mute = mémoriser le niveau puis
+//      écrire 0 ; unmute = restaurer. Écriture VÉRIFIÉE par relecture.
+//   2. 'device' : mute lu dans dumpsys audio -> touche MUTE + relecture.
 //   3. 'intent' : rien n'est lisible -> touche MUTE + suivi d'intention
-//      persisté (dernier recours, resync manuel possible dans l'UI).
+//      persisté (resync manuel possible dans l'UI).
+//
+// Une instance par appareil du registre.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { config, firetvTarget } from './config.js';
+import { config } from './config.js';
 import { KEYS, FIRETV_KEYCODE } from './keys.js';
 import {
   withLock,
@@ -30,69 +29,46 @@ import {
 } from './adb.js';
 
 const POLL_INTERVAL = 5000;
-const OFFLINE_GRACE = 2;      // sondes ratées consécutives avant « hors ligne »
-const DEFAULT_UNMUTE_PCT = 0.4; // niveau restauré si aucun niveau mémorisé
+const OFFLINE_GRACE = 2;
+const DEFAULT_UNMUTE_PCT = 0.4;
 
 export class FireTVController {
-  constructor() {
-    this.target = firetvTarget();
-    this.mutePath = path.join(config.dataDir, 'firetv-mute.json');
-    this.levelPath = path.join(config.dataDir, 'firetv-level.json');
+  constructor(device) {
+    this.device = device;
+    this.mutePath = path.join(config.dataDir, `mute-${device.id}.json`);
+    this.levelPath = path.join(config.dataDir, `level-${device.id}.json`);
 
     this.status = {
-      configured: Boolean(config.firetv.host),
       online: false,
       awake: false,
-      // 'device' | 'offline' | 'unauthorized' | 'absent' | 'inconnu'
       adb: 'inconnu',
       muted: false,
-      // 'volume' (absolu, vérifié) | 'device' (dumpsys) | 'intent' (suivi)
       muteSource: 'intent',
-      volume: null,   // pourcentage 0..100, si lisible
+      volume: null,
     };
     this._loadMute();
     this._savedLevel = this._loadLevel();
 
-    this._started = false;
+    this.pollTimer = null;
     this._refreshing = false;
     this._failstreak = 0;
-    this._gen = 0; // générations : invalide les résultats d'une ancienne cible
+    this._gen = 0;
+    this._stopped = false;
   }
+
+  get id() { return this.device.id; }
+  get target() { return `${this.device.host}:${this.device.port}`; }
 
   start() {
-    if (!this.status.configured) {
-      console.warn('[firetv] FIRETV_HOST non défini — contrôleur inactif.');
-      return;
-    }
-    this._begin();
-  }
-
-  _begin() {
-    if (this._started) return;
-    this._started = true;
     this._refresh();
-    setInterval(() => this._refresh(), POLL_INTERVAL);
+    this.pollTimer = setInterval(() => this._refresh(), POLL_INTERVAL);
   }
 
-  // Change la cible à chaud (réglages / découverte réseau).
-  setTarget(host, port) {
-    const target = `${host}:${port}`;
-    if (target === this.target) return;
-    console.log(`[firetv] Nouvelle cible : ${target}`);
+  stop() {
+    this._stopped = true;
     this._gen++;
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
     forgetVolumeCmd(this.target);
-    config.firetv.host = host;
-    config.firetv.port = port;
-    this.target = target;
-    this.status.configured = Boolean(host);
-    this.status.online = false;
-    this.status.awake = false;
-    this.status.adb = 'inconnu';
-    this.status.volume = null;
-    this._failstreak = 0;
-    if (!this.status.configured) return;
-    if (!this._started) this._begin();
-    else this._refresh();
   }
 
   // ---- Persistance -----------------------------------------------------
@@ -109,9 +85,7 @@ export class FireTVController {
     try {
       fs.mkdirSync(config.dataDir, { recursive: true });
       fs.writeFileSync(this.mutePath, JSON.stringify({ muted: this.status.muted }));
-    } catch (err) {
-      console.error('[firetv] Échec écriture intent mute :', err.message);
-    }
+    } catch { /* best-effort */ }
   }
 
   _loadLevel() {
@@ -128,30 +102,27 @@ export class FireTVController {
     try {
       fs.mkdirSync(config.dataDir, { recursive: true });
       fs.writeFileSync(this.levelPath, JSON.stringify({ level }));
-    } catch (err) {
-      console.error('[firetv] Échec écriture niveau :', err.message);
-    }
+    } catch { /* best-effort */ }
   }
 
   // ---- État ------------------------------------------------------------
 
   _markOnline() {
     this._failstreak = 0;
-    if (!this.status.online) console.log('[firetv] en ligne');
+    if (!this.status.online) console.log(`[${this.device.name}] en ligne`);
     this.status.online = true;
   }
 
   _markProblem() {
     this._failstreak++;
     if (this._failstreak >= OFFLINE_GRACE && this.status.online) {
-      console.log('[firetv] hors ligne');
+      console.log(`[${this.device.name}] hors ligne`);
       this.status.online = false;
       this.status.awake = false;
       this.status.volume = null;
     }
   }
 
-  // Applique volume/mute depuis une lecture réelle { level, max } (ou null).
   async _applyAudioReading(vol) {
     if (vol) {
       this.status.muteSource = 'volume';
@@ -161,7 +132,6 @@ export class FireTVController {
         this.status.muted = muted;
         this._saveMute();
       }
-      // Mémorise le dernier niveau audible pour la restauration.
       if (vol.level > 0) this._saveLevel(vol.level);
       return;
     }
@@ -178,17 +148,16 @@ export class FireTVController {
     }
   }
 
-  // Sonde périodique : présence, éveil, audio réel. Atomique et anti-pileup.
   async _refresh() {
-    if (this._refreshing) return;
+    if (this._refreshing || this._stopped) return;
     this._refreshing = true;
     const gen = this._gen;
     const target = this.target;
     try {
       await withLock(async () => {
-        if (gen !== this._gen) return; // cible changée entre-temps
+        if (gen !== this._gen) return;
         const state = await recoverTarget(target);
-        if (gen !== this._gen) return; // résultat d'une ancienne cible : ignorer
+        if (gen !== this._gen) return;
         this.status.adb = state;
         if (state === 'device') {
           this._markOnline();
@@ -203,8 +172,8 @@ export class FireTVController {
     }
   }
 
-  // Reconnexion à la demande (bouton « Connecter » de l'UI).
-  async connect() {
+  // Reconnexion à la demande (bouton « Connecter »).
+  async connectAdb() {
     const gen = this._gen;
     const target = this.target;
     return withLock(async () => {
@@ -226,7 +195,6 @@ export class FireTVController {
 
   // ---- Actions ---------------------------------------------------------
 
-  // Touche avec récupération : reconnexion + un réessai si échec.
   async _keyWithRetry(code) {
     try {
       await keyeventUnlocked(this.target, code);
@@ -234,44 +202,31 @@ export class FireTVController {
       await recoverTarget(this.target);
       await keyeventUnlocked(this.target, code);
     }
-    this._markOnline(); // touche acceptée -> présence prouvée
+    this._markOnline();
   }
 
   async key(name) {
-    if (name === 'mute') {
-      // Toute bascule de mute passe par le chemin fiable unique.
-      return this.setMuted(!this.status.muted);
-    }
+    if (name === 'mute') return this.setMuted(!this.status.muted);
     const code = KEYS[name]?.firetv;
     if (code == null) throw new Error(`Touche inconnue: ${name}`);
     return withLock(async () => {
       await this._keyWithRetry(code);
-      if (name === 'power') {
-        // L'état d'éveil vient de basculer : ne pas le deviner, re-sonder vite.
-        setTimeout(() => this._refresh(), 1500);
-      }
+      if (name === 'power') setTimeout(() => this._refresh(), 1500);
     });
   }
 
-  async toggleMute() {
-    return this.setMuted(!this.status.muted);
-  }
-
-  // Amène le mute à l'état voulu. TOUTE la séquence (lecture de l'état réel,
-  // décision, écriture, vérification) est atomique dans le verrou adb —
-  // pas de fenêtre pour une double bascule.
+  // Toute la séquence est atomique dans le verrou adb — pas de double bascule.
   async setMuted(desired) {
     const gen = this._gen;
     return withLock(async () => {
       if (gen !== this._gen) return;
       const target = this.target;
 
-      // 1) Chemin volume absolu (vérifié par relecture).
+      // 1) Volume absolu (vérifié).
       const vol = await readVolume(target);
       if (vol) {
-        const isMuted = vol.level === 0;
         if (vol.level > 0) this._saveLevel(vol.level);
-        if (isMuted === desired) {
+        if ((vol.level === 0) === desired) {
           await this._applyAudioReading(vol);
           return;
         }
@@ -286,10 +241,9 @@ export class FireTVController {
           await this._applyAudioReading(back);
           return;
         }
-        // Écriture non prise : on retombe sur la touche.
       }
 
-      // 2) Chemin touche MUTE + relecture dumpsys si possible.
+      // 2) Touche MUTE + relecture dumpsys.
       const before = await readMuteUnlocked(target);
       if (before !== null && before === desired) {
         this.status.muteSource = 'device';
@@ -301,7 +255,6 @@ export class FireTVController {
       if (after !== null) {
         this.status.muteSource = 'device';
         if (after !== desired) {
-          // La bascule n'a pas produit l'état voulu : une seconde tentative.
           await this._keyWithRetry(KEYS.mute.firetv);
           const again = await readMuteUnlocked(target);
           this.status.muted = again === null ? desired : again;
@@ -319,7 +272,6 @@ export class FireTVController {
     });
   }
 
-  // Endormissement idempotent (KEYCODE_SLEEP ne rallume jamais).
   async standby() {
     return withLock(async () => {
       await this._keyWithRetry(FIRETV_KEYCODE.SLEEP);
@@ -327,13 +279,18 @@ export class FireTVController {
     });
   }
 
-  // Corrige l'intention de mute SANS actionner la TV (mode 'intent' seulement).
+  // Corrige l'intention de mute SANS actionner la TV (mode 'intent').
   setMuteIntent(muted) {
     this.status.muted = Boolean(muted);
     this._saveMute();
   }
 
+  // Le Fire TV n'a pas de pairing PIN.
+  sendPin() {
+    throw new Error('Cet appareil ne demande pas de code PIN');
+  }
+
   getState() {
-    return { ...this.status };
+    return { ...this.device, ...this.status, kind: 'firetv', paired: true, pairing: false, app: null };
   }
 }

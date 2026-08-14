@@ -12,7 +12,6 @@
 import net from 'node:net';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
-import { config } from './config.js';
 
 const PROBE_TIMEOUT = 450;   // ms par hôte/port
 const CONCURRENCY = 64;      // sondes simultanées
@@ -20,8 +19,9 @@ const CONCURRENCY = 64;      // sondes simultanées
 export const SHIELD_PORT = 6466; // Android TV Remote v2
 export const ADB_PORT = 5555;    // adb TCP
 
-// /24 candidats : interfaces IPv4 locales + sous-réseaux des IP configurées.
-export function candidateSubnets() {
+// /24 candidats : interfaces IPv4 locales + sous-réseaux des IP déjà connues
+// (appareils enregistrés), au cas où l'hôte serait multi-réseaux.
+export function candidateSubnets(knownHosts = []) {
   const bases = new Set();
   for (const ifaces of Object.values(os.networkInterfaces())) {
     for (const i of ifaces || []) {
@@ -30,9 +30,9 @@ export function candidateSubnets() {
       }
     }
   }
-  for (const host of [config.shield.host, config.firetv.host]) {
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-      bases.add(host.split('.').slice(0, 3).join('.'));
+  for (const host of knownHosts) {
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(String(host))) {
+      bases.add(String(host).split('.').slice(0, 3).join('.'));
     }
   }
   return [...bases];
@@ -86,8 +86,8 @@ function adbModel(target) {
 
 // Balaye les sous-réseaux et renvoie les candidats par rôle.
 // { subnets, shield: [{host}], firetv: [{host, model}] }
-export async function discover() {
-  const subnets = candidateSubnets();
+export async function discover(knownHosts = []) {
+  const subnets = candidateSubnets(knownHosts);
   const hosts = subnets.flatMap((base) =>
     Array.from({ length: 254 }, (_, i) => `${base}.${i + 1}`),
   );

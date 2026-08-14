@@ -1,8 +1,8 @@
 {
-  "name": "salon-tv",
+  "name": "deck",
   "version": "1.0.0",
   "private": true,
-  "description": "Télécommande web auto-hébergée pour piloter deux TV (Nvidia Shield + TCL Fire TV) depuis un téléphone.",
+  "description": "Télécommande web auto-hébergée : pilote plusieurs TV (Android TV / Shield et Fire TV) par pièce, depuis un téléphone.",
   "type": "module",
   "engines": {
     "node": ">=22"

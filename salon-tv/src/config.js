@@ -23,6 +23,10 @@ const saved = loadSettings();
 export const config = {
   port: parseInt(process.env.PORT || '8099', 10),
 
+  // Marque affichée dans l'interface (modifiable dans les réglages).
+  brandName: saved.brandName ?? (process.env.BRAND_NAME || 'DECK'),
+  tagline: saved.tagline ?? (process.env.TAGLINE || 'tv control'),
+
   // Répertoire persistant (certificat Shield, intent mute, réglages).
   dataDir,
 
