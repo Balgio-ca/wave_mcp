@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0b0d">
+<title>Salon TV</title>
+
+<!-- Installation sur l'écran d'accueil iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Salon TV">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg:        #0a0b0d;
+    --panel:     #16181c;
+    --panel-2:   #1c1f24;
+    --raise:     #23272e;
+    --line:      #2a2e35;
+    --line-soft: #202329;
+    --text:      #d9dee5;
+    --dim:       #7b828c;
+    --faint:     #565c65;
+    --green:     #38d66b;
+    --amber:     #f0a83a;
+    --red:       #e5484d;
+    --phosphor:  #86e6ad;
+    --label: 'Saira Condensed', 'Oswald', 'Arial Narrow', system-ui, sans-serif;
+    --mono:  'DM Mono', ui-monospace, 'SF Mono', 'Menlo', monospace;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+
+  body {
+    font-family: var(--label);
+    min-height: 100vh;
+    padding:
+      calc(env(safe-area-inset-top) + 14px)
+      calc(env(safe-area-inset-right) + 12px)
+      calc(env(safe-area-inset-bottom) + 20px)
+      calc(env(safe-area-inset-left) + 12px);
+    max-width: 620px;
+    margin: 0 auto;
+    position: relative;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Grain léger par-dessus toute la surface */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---- En-tête ---- */
+  .top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 2px 4px 14px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .top h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .top .sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 9px 3px;
+    font-weight: 600;
+  }
+
+  /* ---- Scènes ---- */
+  .scenes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .scene {
+    grid-column: span 1;
+    appearance: none;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--raise), var(--panel));
+    color: var(--text);
+    font-family: var(--label);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 15px 6px;
+    min-height: 58px;
+    border-radius: 4px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform .05s, background .1s, border-color .1s;
+  }
+  .scene .k {
+    display: block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin-top: 3px;
+    text-transform: none;
+  }
+  .scene[data-scene="off"] { grid-column: span 3; border-color: #3a2224; color: #f3b0b2; }
+  .scene:active { transform: translateY(1px); background: var(--panel); border-color: var(--phosphor); }
+
+  /* ---- Bandeaux de canal ---- */
+  .strip {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .strip-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 14px 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .led {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #33373d;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6);
+    flex: none;
+  }
+  .led.green { background: var(--green); box-shadow: 0 0 9px 1px rgba(56,214,107,0.6), inset 0 0 2px rgba(255,255,255,0.4); }
+  .led.amber { background: var(--amber); box-shadow: 0 0 9px 1px rgba(240,168,58,0.55), inset 0 0 2px rgba(255,255,255,0.4); }
+  .led.red   { background: var(--red);   box-shadow: 0 0 9px 1px rgba(229,72,77,0.55), inset 0 0 2px rgba(255,255,255,0.4); }
+
+  .strip-head .name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .strip-head .state {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    text-align: right;
+    text-transform: uppercase;
+  }
+
+  /* Écran de données (app + volume) */
+  .readout {
+    padding: 11px 14px 4px;
+    font-family: var(--mono);
+  }
+  .readout .app {
+    font-size: 12px;
+    color: var(--phosphor);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 15px;
+  }
+  .vu {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .meter {
+    flex: 1;
+    display: flex;
+    gap: 2px;
+    height: 14px;
+  }
+  .meter i {
+    flex: 1;
+    background: #24282e;
+    border-radius: 1px;
+  }
+  .meter i.on   { background: var(--green); }
+  .meter i.hi   { background: var(--amber); }
+  .meter.muted i.on, .meter.muted i.hi { background: #4a2a2c; }
+  .vu .pct {
+    font-size: 13px;
+    color: var(--text);
+    width: 46px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .vu .pct.muted { color: var(--red); }
+
+  /* ---- Rangée de transport ---- */
+  .transport {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    padding: 12px 14px 14px;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--raise), #191c21);
+    color: var(--text);
+    border-radius: 5px;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-family: var(--label);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.5);
+    transition: transform .05s, background .1s, border-color .1s;
+  }
+  .btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .btn .cap { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+  .btn:active { transform: translateY(1px); background: #14171b; border-color: var(--phosphor); }
+  .btn.danger { color: #eaa6a8; }
+  .btn.danger:active { border-color: var(--red); }
+  .btn.armed { color: var(--red); }
+
+  /* ---- Pavé directionnel repliable ---- */
+  .dpad-toggle {
+    width: 100%;
+    appearance: none;
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--line-soft);
+    color: var(--dim);
+    font-family: var(--label);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .dpad-toggle .chev { transition: transform .18s; font-family: var(--mono); }
+  .strip.open .dpad-toggle .chev { transform: rotate(180deg); }
+
+  .dpad-wrap {
+    display: none;
+    padding: 4px 14px 16px;
+  }
+  .strip.open .dpad-wrap { display: block; }
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 7px;
+    max-width: 300px;
+    margin: 0 auto 8px;
+  }
+  .dpad .btn { min-height: 62px; }
+  .dpad .center { color: var(--phosphor); font-weight: 700; }
+  .dpad-extra {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+    max-width: 300px;
+    margin: 0 auto;
+  }
+
+  /* ---- Modale de pairing PIN ---- */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(6,7,9,0.86);
+    backdrop-filter: blur(3px);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    width: 100%;
+    max-width: 340px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px 20px 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  }
+  .modal h2 {
+    font-size: 20px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; margin: 0 0 6px;
+  }
+  .modal p { font-family: var(--mono); font-size: 12px; color: var(--dim); line-height: 1.5; margin: 0 0 16px; }
+  .modal input {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 26px;
+    letter-spacing: 0.4em;
+    text-align: center;
+    color: var(--phosphor);
+    background: #0d0f12;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 14px 10px;
+    margin-bottom: 14px;
+  }
+  .modal input:focus { outline: none; border-color: var(--phosphor); }
+  .modal .go {
+    width: 100%;
+    appearance: none;
+    border: 1px solid var(--green);
+    background: rgba(56,214,107,0.12);
+    color: var(--green);
+    font-family: var(--label);
+    font-size: 16px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px;
+    border-radius: 5px;
+    min-height: 54px;
+  }
+  .modal .go:active { background: rgba(56,214,107,0.22); }
+
+  /* ---- Toast ---- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 18px);
+    transform: translateX(-50%) translateY(20px);
+    background: #24181a;
+    border: 1px solid #4a2a2c;
+    color: #f3b0b2;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 16px;
+    border-radius: 5px;
+    z-index: 30;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <header class="top">
+    <h1>Salon</h1>
+    <span class="sub" id="clock">—</span>
+  </header>
+
+  <p class="section-label">Scènes</p>
+  <div class="scenes">
+    <button class="scene" data-scene="shield_solo">Shield<span class="k">solo audio</span></button>
+    <button class="scene" data-scene="firetv_solo">Fire TV<span class="k">solo audio</span></button>
+    <button class="scene" data-scene="silence">Silence<span class="k">tout muet</span></button>
+    <button class="scene" data-scene="pause_all">Pause<span class="k">les deux</span></button>
+    <button class="scene" data-scene="off">Extinction<span class="k">veille des deux TV</span></button>
+  </div>
+
+  <p class="section-label">Canaux</p>
+  <div id="strips"></div>
+
+  <!-- Modale PIN -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2>Pairing Shield</h2>
+      <p>Un code s'affiche sur la Nvidia Shield. Saisis-le ci-dessous pour appairer la télécommande.</p>
+      <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" autocomplete="off">
+      <button class="go" id="pinGo">Valider</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ---- Icônes SVG (transport) ----
+const ICON = {
+  mute: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>',
+  vol_down: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 12h5"/></svg>',
+  vol_up: '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M18 9v6M21 12h-6"/></svg>',
+  play_pause: '<svg viewBox="0 0 24 24"><path d="M6 5l7 5-7 5V5z"/><path d="M16 6v12M20 6v12"/></svg>',
+  power: '<svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.5 7a8 8 0 1 0 11 0"/></svg>',
+  up: '<svg viewBox="0 0 24 24"><path d="M12 6l6 7H6l6-7z"/></svg>',
+  down: '<svg viewBox="0 0 24 24"><path d="M12 18l-6-7h12l-6 7z"/></svg>',
+  left: '<svg viewBox="0 0 24 24"><path d="M6 12l7-6v12l-7-6z"/></svg>',
+  right: '<svg viewBox="0 0 24 24"><path d="M18 12l-7 6V6l7 6z"/></svg>',
+  back: '<svg viewBox="0 0 24 24"><path d="M9 5l-6 7 6 7"/><path d="M3 12h13a5 5 0 0 1 5 5v1"/></svg>',
+  home: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>',
+  menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+};
+
+const DEVICES = [
+  { id: 'shield', name: 'Shield', hasData: true },
+  { id: 'firetv', name: 'Fire TV', hasData: false },
+];
+
+const strips = document.getElementById('strips');
+const openState = {}; // mémorise l'ouverture du D-pad par appareil
+
+// ---- Construction initiale des bandeaux ----
+function buildStrips() {
+  strips.innerHTML = '';
+  for (const d of DEVICES) {
+    const el = document.createElement('section');
+    el.className = 'strip';
+    el.id = 'strip-' + d.id;
+    el.innerHTML = `
+      <div class="strip-head">
+        <span class="led" id="led-${d.id}"></span>
+        <span class="name">${d.name}</span>
+        <span class="state" id="state-${d.id}">—</span>
+      </div>
+      ${d.hasData ? `
+      <div class="readout">
+        <div class="app" id="app-${d.id}">—</div>
+        <div class="vu">
+          <div class="meter" id="meter-${d.id}"></div>
+          <div class="pct" id="pct-${d.id}">—</div>
+        </div>
+      </div>` : ''}
+      <div class="transport">
+        ${tBtn(d.id, 'mute', 'Muet')}
+        ${tBtn(d.id, 'vol_down', 'Vol −')}
+        ${tBtn(d.id, 'vol_up', 'Vol +')}
+        ${tBtn(d.id, 'play_pause', 'Lect.')}
+        ${tBtn(d.id, 'power', 'Alim.', 'danger')}
+      </div>
+      <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
+      <div class="dpad-wrap">
+        <div class="dpad">
+          <span></span>${dBtn(d.id,'up')}<span></span>
+          ${dBtn(d.id,'left')}${dBtn(d.id,'ok','OK','center')}${dBtn(d.id,'right')}
+          <span></span>${dBtn(d.id,'down')}<span></span>
+        </div>
+        <div class="dpad-extra">
+          ${dBtn(d.id,'back','Retour')}${dBtn(d.id,'home','Accueil')}${dBtn(d.id,'menu','Menu')}
+        </div>
+      </div>`;
+    strips.appendChild(el);
+    if (openState[d.id]) el.classList.add('open');
+    // Meter
+    if (d.hasData) {
+      const m = el.querySelector('#meter-' + d.id);
+      for (let i = 0; i < 20; i++) m.appendChild(document.createElement('i'));
+    }
+  }
+}
+
+function tBtn(dev, key, cap, cls = '') {
+  return `<button class="btn ${cls}" data-dev="${dev}" data-key="${key}">${ICON[key]}<span class="cap">${cap}</span></button>`;
+}
+function dBtn(dev, key, cap, cls = '') {
+  let inner;
+  if (ICON[key]) {
+    inner = ICON[key] + (cap ? `<span class="cap">${cap}</span>` : '');
+  } else {
+    // Bouton central OK : texte seul, sans icône.
+    inner = `<span style="font-size:16px;font-weight:700;letter-spacing:0.1em">${cap || key}</span>`;
+  }
+  return `<button class="btn ${cls}" data-dev="${dev}" data-key="${key}">${inner}</button>`;
+}
+
+buildStrips();
+
+// ---- Interactions ----
+document.addEventListener('click', async (e) => {
+  const scene = e.target.closest('[data-scene]');
+  if (scene) return void fireScene(scene.dataset.scene);
+
+  const toggle = e.target.closest('[data-toggle]');
+  if (toggle) {
+    const id = toggle.dataset.toggle;
+    const strip = document.getElementById('strip-' + id);
+    strip.classList.toggle('open');
+    openState[id] = strip.classList.contains('open');
+    return;
+  }
+
+  const btn = e.target.closest('[data-dev][data-key]');
+  if (btn) return void fireKey(btn.dataset.dev, btn.dataset.key);
+});
+
+async function fireKey(dev, key) {
+  try {
+    const r = await fetch(`/api/key/${dev}/${key}`, { method: 'POST' });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      toast(`${dev} : ${j.error || r.status}`);
+    } else {
+      refresh(); // reflète vite mute/volume
+    }
+  } catch { toast('Réseau injoignable'); }
+}
+
+async function fireScene(name) {
+  try {
+    const r = await fetch(`/api/scene/${name}`, { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(j.error || `Scène ${name} : ${r.status}`);
+    if (j.errors && j.errors.length) {
+      toast(j.errors.map(e => `${e.device} hors ligne`).join(' · '));
+    }
+    refresh();
+  } catch { toast('Réseau injoignable'); }
+}
+
+// ---- PIN ----
+const overlay = document.getElementById('overlay');
+document.getElementById('pinGo').addEventListener('click', submitPin);
+document.getElementById('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPin(); });
+
+async function submitPin() {
+  const input = document.getElementById('pin');
+  const pin = input.value.trim();
+  if (!/^\d{4,8}$/.test(pin)) return toast('PIN : 4 à 8 chiffres');
+  try {
+    const r = await fetch('/api/shield/pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(j.error || 'PIN refusé');
+    input.value = '';
+    toast('Code envoyé…');
+  } catch { toast('Réseau injoignable'); }
+}
+
+// ---- Rendu de l'état ----
+function ledClass(s) {
+  if (!s.online) return '';
+  if (s.muted) return 'red';
+  if (!s.awake) return 'amber';
+  return 'green';
+}
+
+function render(state) {
+  // Modale de pairing
+  overlay.classList.toggle('show', Boolean(state.shield?.pairing));
+
+  for (const d of DEVICES) {
+    const s = state[d.id] || {};
+    document.getElementById('led-' + d.id).className = 'led ' + ledClass(s);
+
+    let txt;
+    if (!s.configured) txt = 'non configuré';
+    else if (!s.online) txt = 'hors ligne';
+    else if (s.muted) txt = s.awake ? 'muet' : 'veille · muet';
+    else txt = s.awake ? 'en ligne' : 'veille';
+    document.getElementById('state-' + d.id).textContent = txt;
+
+    // Bouton mute « armé » (rouge) quand muet
+    const mBtn = document.querySelector(`.btn[data-dev="${d.id}"][data-key="mute"]`);
+    if (mBtn) mBtn.classList.toggle('armed', Boolean(s.muted));
+
+    if (d.hasData) {
+      document.getElementById('app-' + d.id).textContent = s.app ? appName(s.app) : (s.online ? '—' : '');
+      const meter = document.getElementById('meter-' + d.id);
+      const pctEl = document.getElementById('pct-' + d.id);
+      const vol = (typeof s.volume === 'number') ? s.volume : null;
+      meter.classList.toggle('muted', Boolean(s.muted));
+      const lit = vol == null ? 0 : Math.round(vol / 5);
+      [...meter.children].forEach((seg, i) => {
+        seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : '';
+      });
+      pctEl.classList.toggle('muted', Boolean(s.muted));
+      pctEl.textContent = s.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
+    }
+  }
+}
+
+// Nettoie un nom de package en libellé lisible
+function appName(pkg) {
+  const map = {
+    'com.google.android.youtube.tv': 'YouTube',
+    'com.netflix.ninja': 'Netflix',
+    'com.spotify.tv.android': 'Spotify',
+    'com.google.android.tvlauncher': 'Accueil',
+    'com.plexapp.android': 'Plex',
+    'com.disney.disneyplus': 'Disney+',
+  };
+  if (map[pkg]) return map[pkg];
+  const tail = pkg.split('.').pop();
+  return tail.charAt(0).toUpperCase() + tail.slice(1);
+}
+
+// ---- Sondage ----
+let failCount = 0;
+async function refresh() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    const state = await r.json();
+    failCount = 0;
+    render(state);
+  } catch {
+    if (++failCount === 3) toast('Serveur injoignable');
+  }
+}
+
+// ---- Toast ----
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ---- Horloge ----
+function tick() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${hh}:${mm} · salon`;
+}
+
+tick();
+setInterval(tick, 10000);
+refresh();
+setInterval(refresh, 2500);

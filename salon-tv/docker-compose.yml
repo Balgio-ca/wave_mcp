@@ -1,0 +1,19 @@
+services:
+  salon-tv:
+    build: .
+    container_name: salon-tv
+    # OBLIGATOIRE : le pairing du Shield (mDNS/TLS) et adb échouent en mode bridge.
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      # --- Adresses des TV : à renseigner ---
+      # (remplies par l'assistant ; modifiables ici à tout moment)
+      SHIELD_HOST: "REMPLACER_IP_SHIELD"
+      FIRETV_HOST: "REMPLACER_IP_FIRETV"
+      FIRETV_PORT: "5555"
+      # --- Service ---
+      PORT: "8099"
+      DATA_DIR: "/app/data"
+    volumes:
+      # Persiste le certificat de pairing Shield et l'intent mute Fire TV.
+      - ./data:/app/data
