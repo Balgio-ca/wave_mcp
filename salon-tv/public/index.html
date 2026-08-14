@@ -252,6 +252,41 @@
   .btn.danger:active { border-color: var(--red); }
   .btn.armed { color: var(--red); }
 
+  /* ---- Connexion Fire TV ---- */
+  .netrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px 2px;
+    flex-wrap: wrap;
+  }
+  .netbtn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--raise), #191c21);
+    color: var(--text);
+    font-family: var(--label);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    min-height: 44px;
+    border-radius: 5px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .netbtn:active { border-color: var(--phosphor); transform: translateY(1px); }
+  .netstat {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+  .netstat.ok   { color: var(--green); }
+  .netstat.warn { color: var(--amber); }
+  .netstat.bad  { color: var(--red); }
+
   /* ---- Resync mute Fire TV ---- */
   .resync {
     display: flex;
@@ -500,10 +535,14 @@ function buildStrips() {
         ${tBtn(d.id, 'power', 'Alim.', 'danger')}
       </div>
       ${!d.hasData ? `
+      <div class="netrow">
+        <button class="netbtn" data-connect="${d.id}">Connecter</button>
+        <span class="netstat" id="adb-${d.id}">—</span>
+      </div>
       <div class="resync">
         <span class="lbl">Son suivi</span>
         <button class="fixbtn" data-fixmute="${d.id}"><span id="mi-${d.id}">—</span></button>
-        <span class="hint">appuie si c'est à l'envers</span>
+        <span class="hint">appuie si le solo est à l'envers</span>
       </div>` : ''}
       <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
       <div class="dpad-wrap">
@@ -556,12 +595,32 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const conn = e.target.closest('[data-connect]');
+  if (conn) return void connectDev(conn.dataset.connect);
+
   const fix = e.target.closest('[data-fixmute]');
   if (fix) return void fixMute(fix.dataset.fixmute);
 
   const btn = e.target.closest('[data-dev][data-key]');
   if (btn) return void fireKey(btn.dataset.dev, btn.dataset.key);
 });
+
+// Force une reconnexion adb (bouton « Connecter ») et rapporte l'état.
+async function connectDev(dev) {
+  toast('Connexion…');
+  try {
+    const r = await fetch(`/api/${dev}/connect`, { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    const msg = {
+      device: 'Fire TV connectée',
+      unauthorized: 'Autorise le débogage ADB sur la TV',
+      offline: 'Fire TV injoignable (allumée ?)',
+      absent: 'adb non installé sur l’hôte',
+    };
+    toast(msg[j.adb] || 'Fire TV injoignable');
+    refresh();
+  } catch { toast('Réseau injoignable'); }
+}
 
 // Réaligne le suivi mute sans toucher la TV (corrige un décalage de phase).
 async function fixMute(dev) {
@@ -659,6 +718,21 @@ function render(state) {
     if (mi) {
       mi.textContent = s.muted ? 'MUET' : 'ACTIF';
       mi.parentElement.classList.toggle('muted', Boolean(s.muted));
+    }
+
+    // État adb (bandeau Fire TV)
+    const adbEl = document.getElementById('adb-' + d.id);
+    if (adbEl) {
+      const map = {
+        device: ['connectée', 'ok'],
+        unauthorized: ['à autoriser sur la TV', 'warn'],
+        offline: ['hors ligne', 'bad'],
+        absent: ['adb absent', 'bad'],
+        inconnu: ['—', ''],
+      };
+      const [txt, cls] = map[s.adb] || ['—', ''];
+      adbEl.textContent = txt;
+      adbEl.className = 'netstat ' + cls;
     }
 
     if (d.hasData) {

@@ -9,12 +9,11 @@
 // télécommande physique peut désynchroniser ce suivi (voir README).
 //
 // FIABILITÉ — la connexion adb TCP de la Fire TV décroche facilement. On :
-//   1) sérialise TOUS les appels adb (jamais deux commandes en parallèle, sinon
-//      la connexion passe « offline ») ;
+//   1) sérialise TOUS les appels adb (jamais deux commandes en parallèle) ;
 //   2) considère qu'une touche acceptée prouve que la TV est en ligne ;
-//   3) n'affiche « hors ligne » qu'après plusieurs sondes ratées d'affilée
-//      (anti-clignotement) ;
-//   4) reconnecte et réessaie une fois si une touche échoue.
+//   3) n'affiche « hors ligne » qu'après plusieurs sondes ratées (anti-clignote) ;
+//   4) RÉCUPÈRE un état « offline » par disconnect+connect (un simple connect ne
+//      suffit pas), et réessaie une fois une touche qui échoue.
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
@@ -29,7 +28,11 @@ const OFFLINE_GRACE = 2; // sondes ratées consécutives avant de déclarer hors
 function adb(args, { timeout = ADB_TIMEOUT } = {}) {
   return new Promise((resolve, reject) => {
     execFile('adb', args, { timeout }, (err, stdout, stderr) => {
-      if (err) return reject(new Error((stderr || err.message || '').trim() || 'échec adb'));
+      if (err) {
+        const e = new Error((stderr || err.message || '').trim() || 'échec adb');
+        e.code = err.code; // préserve ENOENT (adb absent), etc.
+        return reject(e);
+      }
       resolve(String(stdout).trim());
     });
   });
@@ -44,6 +47,8 @@ export class FireTVController {
       configured: Boolean(config.firetv.host),
       online: false,
       awake: false,
+      // 'device' | 'offline' | 'unauthorized' | 'absent' | 'inconnu'
+      adb: 'inconnu',
       // État de mute *suivi* (intention), pas mesuré sur l'appareil.
       muted: false,
     };
@@ -63,8 +68,7 @@ export class FireTVController {
     setInterval(() => this._refresh(), POLL_INTERVAL);
   }
 
-  // Sérialise tout accès adb : la commande fn ne démarre qu'une fois la
-  // précédente terminée (succès OU échec). Renvoie le résultat réel de fn.
+  // Sérialise tout accès adb : fn ne démarre qu'une fois la précédente terminée.
   _serial(fn) {
     const result = this._chain.then(fn, fn);
     this._chain = result.then(() => {}, () => {});
@@ -91,6 +95,7 @@ export class FireTVController {
 
   _markOnline(awake) {
     this._failstreak = 0;
+    this.status.adb = 'device';
     if (!this.status.online) console.log('[firetv] en ligne');
     this.status.online = true;
     this.status.awake = awake;
@@ -105,17 +110,47 @@ export class FireTVController {
     }
   }
 
-  // Se (re)connecter puis relever présence + éveil. Sérialisé et anti-pileup.
+  // Lit l'état de l'appareil dans `adb devices` : device/offline/unauthorized.
+  async _deviceState() {
+    try {
+      const out = await adb(['devices']);
+      for (const line of out.split('\n')) {
+        const [addr, st] = line.trim().split(/\s+/);
+        if (addr === this.target) return st || 'offline';
+      }
+      return 'offline'; // pas listé
+    } catch (e) {
+      if (e.code === 'ENOENT') return 'absent';
+      return 'inconnu';
+    }
+  }
+
+  // connect, puis si l'état n'est pas 'device', reset propre (disconnect+connect)
+  // — un simple `adb connect` ne récupère PAS une connexion « offline ».
+  async _probeState() {
+    let connectErr = null;
+    await adb(['connect', this.target]).catch((e) => { connectErr = e; });
+    if (connectErr && connectErr.code === 'ENOENT') return 'absent';
+
+    let state = await this._deviceState();
+    if (state !== 'device' && state !== 'absent') {
+      await adb(['disconnect', this.target]).catch(() => {});
+      await adb(['connect', this.target]).catch(() => {});
+      state = await this._deviceState();
+    }
+    return state;
+  }
+
+  // Sonde périodique : présence + éveil. Sérialisée et anti-pileup.
   async _refresh() {
     if (this._refreshing) return;
     this._refreshing = true;
     try {
       await this._serial(async () => {
-        await adb(['connect', this.target]).catch(() => {});
-        const state = await adb(['-s', this.target, 'get-state']).catch(() => 'offline');
+        const state = await this._probeState();
+        this.status.adb = state;
         if (state === 'device') {
-          const awake = await this._isAwake();
-          this._markOnline(awake);
+          this._markOnline(await this._isAwake());
         } else {
           this._markProblem();
         }
@@ -125,10 +160,31 @@ export class FireTVController {
     }
   }
 
+  // Reconnexion à la demande (bouton « Connecter » de l'UI).
+  async connect() {
+    return this._serial(async () => {
+      await adb(['disconnect', this.target]).catch(() => {});
+      let connectErr = null;
+      await adb(['connect', this.target]).catch((e) => { connectErr = e; });
+      if (connectErr && connectErr.code === 'ENOENT') {
+        this.status.adb = 'absent';
+        this._markProblem();
+        return { adb: 'absent', online: false };
+      }
+      const state = await this._deviceState();
+      this.status.adb = state;
+      if (state === 'device') {
+        this._markOnline(await this._isAwake());
+      } else {
+        this._markProblem();
+      }
+      return { adb: state, online: this.status.online };
+    });
+  }
+
   async _isAwake() {
     try {
       const out = await adb(['-s', this.target, 'shell', 'dumpsys', 'power'], { timeout: 4000 });
-      // Éveillé si mWakefulness=Awake ou Display Power: state=ON
       if (/mWakefulness=Awake/i.test(out)) return true;
       if (/Display Power:\s*state=ON/i.test(out)) return true;
       return false;
@@ -138,20 +194,17 @@ export class FireTVController {
   }
 
   // Envoie une touche, avec reconnexion + un réessai si la connexion a décroché.
-  // Une touche acceptée prouve la présence -> on marque en ligne aussitôt.
   async _sendKeyevent(code, awake = true) {
     try {
       await adb(['-s', this.target, 'shell', 'input', 'keyevent', String(code)]);
     } catch {
-      // Connexion probablement décrochée : reconnexion propre puis un réessai.
       await adb(['disconnect', this.target]).catch(() => {});
       await adb(['connect', this.target]).catch(() => {});
       await adb(['-s', this.target, 'shell', 'input', 'keyevent', String(code)]);
     }
-    this._markOnline(awake);
+    this._markOnline(awake); // touche acceptée -> présence prouvée
   }
 
-  // Envoie une touche du vocabulaire commun. `mute` passe par le suivi d'intent.
   async key(name) {
     if (name === 'mute') return this.toggleMute();
     const code = KEYS[name]?.firetv;
@@ -159,7 +212,6 @@ export class FireTVController {
     return this._serial(() => this._sendKeyevent(code));
   }
 
-  // Bouton mute du bandeau : bascule et met à jour l'intention suivie.
   async toggleMute() {
     return this._serial(async () => {
       await this._sendKeyevent(KEYS.mute.firetv);
@@ -168,7 +220,6 @@ export class FireTVController {
     });
   }
 
-  // Amène le mute à l'état voulu — ne bascule QUE si l'intention diffère.
   async setMuted(desired) {
     if (this.status.muted === desired) return; // déjà dans l'état voulu (suivi)
     return this._serial(async () => {
@@ -178,13 +229,11 @@ export class FireTVController {
     });
   }
 
-  // Endormissement idempotent (KEYCODE_SLEEP ne rallume jamais).
   async standby() {
     return this._serial(() => this._sendKeyevent(FIRETV_KEYCODE.SLEEP, false));
   }
 
   // Corrige l'intention de mute SANS envoyer de touche à la TV.
-  // Sert à réaligner le suivi quand la télécommande physique l'a désynchronisé.
   setMuteIntent(muted) {
     this.status.muted = Boolean(muted);
     this._saveMute();

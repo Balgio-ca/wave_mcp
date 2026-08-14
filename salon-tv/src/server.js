@@ -73,6 +73,13 @@ app.post('/api/shield/pin', (req, res) => {
   }
 });
 
+// Force une reconnexion adb de la Fire TV : POST /api/firetv/connect
+// Renvoie l'état adb ('device' | 'unauthorized' | 'offline' | 'absent' | ...).
+app.post('/api/firetv/connect', async (req, res) => {
+  const result = await firetv.connect();
+  res.json({ ok: result.adb === 'device', ...result });
+});
+
 // Réaligne l'intention de mute Fire TV sans actionner la TV : POST /api/firetv/mute
 // Corps { muted: true|false }. Sert à corriger un suivi désynchronisé.
 app.post('/api/firetv/mute', (req, res) => {
