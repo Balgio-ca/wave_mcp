@@ -1,8 +1,13 @@
-# DECK
+# Multi TV Remote
 
-Télécommande web auto-hébergée pour piloter **plusieurs téléviseurs, groupés
-par pièce, depuis un seul écran de téléphone**. Pensée pour le *man cave* : un
-tap coupe le son de toutes les TV sauf celle du match.
+**Contrôle plusieurs TV depuis ton téléphone.** Télécommande web auto-hébergée
+qui pilote tous tes téléviseurs, groupés par pièce, sur un seul écran. Pensée
+pour le *man cave* : un tap coupe le son de toutes les TV sauf celle du match.
+
+> Le nom du produit **est** la requête que tapent les gens qui ont plusieurs
+> TV (« multi tv remote », « control multiple TVs one app »). Il reste
+> modifiable dans **Réglages → Marque** (ou `BRAND_NAME`), ce qui change aussi
+> le nom sur l'écran d'accueil via le manifest.
 
 - **Android TV / Google TV** (Nvidia Shield, Chromecast…) — protocole
   *Android TV Remote v2* (TLS, pairing par code PIN), via
@@ -203,9 +208,16 @@ home, menu`). Les scènes sont stockées dans `data/scenes.json`.
 
 ## Marque
 
-Le nom et le sous-titre affichés sont modifiables dans **Réglages → Marque**
-(ou via `BRAND_NAME` / `TAGLINE`). Ils sont persistés dans
-`data/settings.json`.
+Nom et sous-titre modifiables dans **Réglages → Marque** (ou via `BRAND_NAME` /
+`TAGLINE`), persistés dans `data/settings.json`. Ils alimentent aussi
+`/manifest.webmanifest`, donc le nom affiché sous l'icône quand l'app est
+installée sur l'écran d'accueil.
+
+Le défaut — **Multi TV Remote** / *man cave control* — suit la logique
+ASO/SEO : le titre contient littéralement la phrase recherchée, le
+positionnement (man cave) vit dans la baseline et la description. Si tu vises
+plutôt une marque mémorisable, garde la requête dans le sous-titre :
+`BRAND_NAME="CAVE"` + `TAGLINE="multi tv remote"`.
 
 ---
 

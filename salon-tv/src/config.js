@@ -24,8 +24,11 @@ export const config = {
   port: parseInt(process.env.PORT || '8099', 10),
 
   // Marque affichée dans l'interface (modifiable dans les réglages).
-  brandName: saved.brandName ?? (process.env.BRAND_NAME || 'DECK'),
-  tagline: saved.tagline ?? (process.env.TAGLINE || 'tv control'),
+  // Le nom par défaut EST la requête cible (« multi tv remote ») : c'est ce
+  // que cherchent les gens qui ont plusieurs TV. Le man cave est le
+  // positionnement, porté par le sous-titre.
+  brandName: saved.brandName ?? (process.env.BRAND_NAME || 'MULTI TV REMOTE'),
+  tagline: saved.tagline ?? (process.env.TAGLINE || 'man cave control'),
 
   // Répertoire persistant (certificat Shield, intent mute, réglages).
   dataDir,

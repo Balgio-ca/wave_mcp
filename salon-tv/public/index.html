@@ -4,13 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0a0b0d">
-<title>DECK</title>
+<title>Multi TV Remote — contrôle plusieurs TV depuis ton téléphone</title>
+<meta name="description" content="Télécommande web pour plusieurs TV : Android TV, Nvidia Shield et Fire TV, groupées par pièce. Coupe le son de toutes les TV sauf une, en un tap. Auto-hébergée.">
 
-<!-- Installation sur l'écran d'accueil iOS -->
+<!-- Installation sur l'écran d'accueil iOS + manifest (nom configurable) -->
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="DECK">
+<meta name="apple-mobile-web-app-title" content="Multi TV Remote">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,11 +69,13 @@
     border-bottom: 1px solid var(--line);
     margin-bottom: 4px;
   }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; }
   .top h1 {
-    font-size: 30px; font-weight: 700; letter-spacing: 0.2em;
-    text-transform: uppercase; margin: 0;
+    font-size: clamp(19px, 6.4vw, 30px); font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0; white-space: nowrap;
   }
+  /* Nom long (ex. « MULTI TV REMOTE ») : resserre pour tenir sur une ligne. */
+  .top h1.long { font-size: clamp(15px, 4.6vw, 22px); letter-spacing: 0.1em; }
   .top .tag {
     font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em;
     color: var(--faint); text-transform: uppercase;
@@ -332,8 +336,8 @@
 
   <header class="top">
     <div class="brand">
-      <h1 id="brandName">DECK</h1>
-      <span class="tag" id="brandTag">tv control</span>
+      <h1 id="brandName" class="long">MULTI TV REMOTE</h1>
+      <span class="tag" id="brandTag">man cave control</span>
     </div>
     <span class="clock" id="clock">—</span>
   </header>
@@ -449,9 +453,11 @@ function structureKey() {
 
 function render(next) {
   state = next;
-  document.getElementById('brandName').textContent = state.brand?.name || 'DECK';
+  const bname = state.brand?.name || 'MULTI TV REMOTE';
+  const h1 = document.getElementById('brandName');
+  h1.textContent = bname;
+  h1.classList.toggle('long', bname.length > 9);
   document.getElementById('brandTag').textContent = state.brand?.tagline || '';
-  document.title = state.brand?.name || 'DECK';
 
   const rooms = state.rooms || [];
   if (!rooms.length) { renderEmpty(); return; }

@@ -203,6 +203,20 @@ app.post('/api/discover', async (req, res) => {
 
 // --- Frontend statique -------------------------------------------------
 
+// Manifest PWA généré depuis la marque configurée (nom sur l'écran d'accueil).
+app.get('/manifest.webmanifest', (req, res) => {
+  res.type('application/manifest+json').json({
+    name: config.brandName,
+    short_name: config.brandName.split(' ').slice(0, 2).join(' '),
+    description: config.tagline,
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#0a0b0d',
+    theme_color: '#0a0b0d',
+    orientation: 'portrait',
+  });
+});
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const server = app.listen(config.port, () => {
