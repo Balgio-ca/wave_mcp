@@ -60,12 +60,13 @@ app.post('/api/scene/:name', async (req, res) => {
 
 // Envoi du code PIN de pairing du Shield : POST /api/shield/pin { pin }
 app.post('/api/shield/pin', (req, res) => {
-  const pin = req.body?.pin;
-  if (!pin || !/^\d{4,8}$/.test(String(pin).trim())) {
-    return res.status(400).json({ error: 'PIN invalide (4 à 8 chiffres attendus)' });
+  // Le code de pairing du Shield est hexadécimal (6 caractères, 0-9 A-F).
+  const code = String(req.body?.pin ?? '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(code)) {
+    return res.status(400).json({ error: 'Code invalide (6 caractères hexadécimaux : 0-9, A-F)' });
   }
   try {
-    shield.sendPin(String(pin).trim());
+    shield.sendPin(code);
     res.json({ ok: true });
   } catch (err) {
     res.status(409).json({ error: err?.message || String(err) });

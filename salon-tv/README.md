@@ -47,7 +47,7 @@ UGREEN** (`192.168.0.191`).
    au premier plan (Shield uniquement), barre + pourcentage de volume (Shield
    uniquement).
 4. **Pairing PIN du Shield dans l'interface** : le serveur émet l'événement
-   `secret`, le frontend affiche un champ numérique, `POST /api/shield/pin`
+   `secret`, le frontend affiche un champ de saisie, `POST /api/shield/pin`
    envoie le code. Le certificat est **persisté dans `/app/data`** pour survivre
    aux redémarrages ; il est supprimé et re-généré sur l'événement `unpaired`.
 
@@ -142,7 +142,7 @@ Tout se passe **dans l'interface web**, aucun réglage préalable sur la Shield 
 1. Assure-toi que `SHIELD_HOST` pointe sur l'IP de la Shield et que le conteneur
    tourne.
 2. Ouvre l'interface. Dès que le serveur tente le pairing, la **Shield affiche
-   un code à 6 chiffres** et l'interface ouvre automatiquement la fenêtre
+   un code à 6 caractères** (chiffres et lettres A–F) et l'interface ouvre automatiquement la fenêtre
    **« Pairing Shield »**.
 3. Saisis le code, valide. Le serveur appelle `sendCode()` puis, à l'événement
    `ready`, **persiste le certificat** dans `/app/data/shield-cert.json`.

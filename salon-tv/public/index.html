@@ -329,6 +329,7 @@
     font-size: 26px;
     letter-spacing: 0.4em;
     text-align: center;
+    text-transform: uppercase;
     color: var(--phosphor);
     background: #0d0f12;
     border: 1px solid var(--line);
@@ -398,8 +399,8 @@
   <div class="overlay" id="overlay">
     <div class="modal">
       <h2>Pairing Shield</h2>
-      <p>Un code s'affiche sur la Nvidia Shield. Saisis-le ci-dessous pour appairer la télécommande.</p>
-      <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" autocomplete="off">
+      <p>Un code à 6 caractères (chiffres et lettres A–F) s'affiche sur la Nvidia Shield. Saisis-le ci-dessous pour appairer la télécommande.</p>
+      <input id="pin" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="6" placeholder="A1B2C3" autocomplete="off">
       <button class="go" id="pinGo">Valider</button>
     </div>
   </div>
@@ -547,8 +548,8 @@ document.getElementById('pin').addEventListener('keydown', (e) => { if (e.key ==
 
 async function submitPin() {
   const input = document.getElementById('pin');
-  const pin = input.value.trim();
-  if (!/^\d{4,8}$/.test(pin)) return toast('PIN : 4 à 8 chiffres');
+  const pin = input.value.trim().toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(pin)) return toast('Code : 6 caractères (0-9, A-F)');
   try {
     const r = await fetch('/api/shield/pin', {
       method: 'POST',
