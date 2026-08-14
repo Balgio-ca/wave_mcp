@@ -142,6 +142,14 @@ function targets(manager, room) {
   return room === GLOBAL || room === null ? manager.all() : manager.inRoom(room);
 }
 
+// Un appareil ne reçoit une action que s'il la sait faire : une TV sans
+// capacité 'transport' est simplement ignorée par la scène Pause, au lieu de
+// produire une erreur inutile dans errors[].
+function able(controller, cap) {
+  const caps = controller.capabilities;
+  return !Array.isArray(caps) || caps.includes(cap);
+}
+
 // Construit la liste d'actions { controller, run } d'une scène.
 function planFor(id, manager) {
   const [kind, arg] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
@@ -150,14 +158,14 @@ function planFor(id, manager) {
     const target = manager.get(arg);
     if (!target) return null;
     const room = target.device.room;
-    return manager.inRoom(room).map((c) => ({
+    return manager.inRoom(room).filter((c) => able(c, 'mute')).map((c) => ({
       controller: c,
       run: () => c.setMuted(c.id !== target.id),
     }));
   }
 
   if (kind === 'switch') {
-    const list = manager.inRoom(arg);
+    const list = manager.inRoom(arg).filter((c) => able(c, 'mute'));
     if (list.length === 0) return [];
     // L'appareil « au son » actuel, sinon le premier ; on passe au suivant.
     const currentIdx = list.findIndex((c) => !c.getState().muted);
@@ -170,15 +178,18 @@ function planFor(id, manager) {
   }
 
   if (kind === 'silence') {
-    return targets(manager, arg).map((c) => ({ controller: c, run: () => c.setMuted(true) }));
+    return targets(manager, arg).filter((c) => able(c, 'mute'))
+      .map((c) => ({ controller: c, run: () => c.setMuted(true) }));
   }
 
   if (kind === 'pause') {
-    return targets(manager, arg).map((c) => ({ controller: c, run: () => c.key('play_pause') }));
+    return targets(manager, arg).filter((c) => able(c, 'transport'))
+      .map((c) => ({ controller: c, run: () => c.key('play_pause') }));
   }
 
   if (kind === 'off') {
-    return targets(manager, arg).map((c) => ({ controller: c, run: () => c.standby() }));
+    return targets(manager, arg).filter((c) => able(c, 'power'))
+      .map((c) => ({ controller: c, run: () => c.standby() }));
   }
 
   // Scène personnalisée.

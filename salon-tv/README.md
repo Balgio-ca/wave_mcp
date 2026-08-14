@@ -1,20 +1,23 @@
-# Multi TV Remote
+# ManCave — Multi TV Universal Remote
 
 **Contrôle plusieurs TV depuis ton téléphone.** Télécommande web auto-hébergée
-qui pilote tous tes téléviseurs, groupés par pièce, sur un seul écran. Pensée
-pour le *man cave* : un tap coupe le son de toutes les TV sauf celle du match.
+qui pilote tous tes téléviseurs, quelle que soit leur marque, groupés par
+pièce, sur un seul écran. Un tap coupe le son de toutes les TV sauf celle du
+match.
 
-> Le nom du produit **est** la requête que tapent les gens qui ont plusieurs
-> TV (« multi tv remote », « control multiple TVs one app »). Il reste
-> modifiable dans **Réglages → Marque** (ou `BRAND_NAME`), ce qui change aussi
-> le nom sur l'écran d'accueil via le manifest.
+Prend en charge **Android TV / Google TV** (Nvidia Shield, Chromecast, Sony,
+TCL, Philips, Hisense, Xiaomi…), **Fire TV** (Amazon) et **Roku**
+(expérimental) — et le squelette est conçu pour qu'ajouter une marque
+supplémentaire soit une entrée de catalogue plus un pilote, sans toucher au
+reste. Voir [Ajouter un type d'appareil](#ajouter-un-type-dappareil).
 
-- **Android TV / Google TV** (Nvidia Shield, Chromecast…) — protocole
-  *Android TV Remote v2* (TLS, pairing par code PIN), via
-  [`androidtv-remote`](https://www.npmjs.com/package/androidtv-remote), plus un
-  canal **adb** optionnel pour la vérité terrain audio.
-- **Fire TV** (Amazon, TCL…) — pas de services Google, donc pilotée en **ADB
-  sur TCP** (`adb shell …`).
+> Nom au format ASO : marque courte + phrase-clé recherchée. Modifiable dans
+> **Réglages → Marque** (ou `BRAND_NAME` / `TAGLINE`), ce qui change aussi le
+> nom sur l'écran d'accueil via le manifest.
+
+Sous le capot : *Android TV Remote v2* (TLS, code PIN) via
+[`androidtv-remote`](https://www.npmjs.com/package/androidtv-remote), **adb sur
+TCP** pour Fire TV et le volume absolu, **ECP/HTTP** pour Roku.
 
 Un seul conteneur Docker (Node 22 + Express), un frontend statique (une page
 `index.html` en JavaScript vanille), interface en **français**, installable sur
@@ -30,7 +33,8 @@ l'écran d'accueil d'un iPhone.
 - [Activer le débogage ADB](#activer-le-débogage-adb)
 - [Appairer une Android TV (code PIN)](#appairer-une-android-tv-code-pin)
 - [Pièces et scènes](#pièces-et-scènes)
-- [Le mute : comment DECK le rend fiable](#le-mute--comment-deck-le-rend-fiable)
+- [Ajouter un type d'appareil](#ajouter-un-type-dappareil)
+- [Le mute : comment ManCave le rend fiable](#le-mute--comment-mancave-le-rend-fiable)
 - [Scènes personnalisées](#scènes-personnalisées)
 - [Marque](#marque)
 - [Référence de l'API](#référence-de-lapi)
@@ -44,8 +48,9 @@ l'écran d'accueil d'un iPhone.
 1. **Multi-TV, multi-pièces.** Nombre d'appareils illimité, groupés par pièce,
    avec des onglets de pièce en haut de l'écran. Tout se configure dans
    l'interface — aucune IP en dur dans le code.
-2. **Découverte réseau.** Le scan trouve les TV du réseau local (port 6466 =
-   Android TV Remote, port 5555 = adb) et les ajoute en un tap.
+2. **Découverte réseau multi-protocoles.** Le scan sonde les ports déclarés au
+   catalogue (6466 Android TV Remote, 5555 adb, 8060 Roku ECP), **devine le
+   type** de chaque appareil trouvé et l'ajoute en un tap.
 3. **Scènes automatiques par pièce** — générées dès qu'un appareil existe :
    - **solo** (un bouton par TV) — cette TV au son, les autres de la pièce en muet ;
    - **switch** — fait tourner le solo sur la TV suivante ;
@@ -56,7 +61,7 @@ l'écran d'accueil d'un iPhone.
 4. **Scènes personnalisées** — combinaisons libres d'actions par appareil.
 5. **État en direct** par TV : en ligne / hors ligne, éveil / veille, app au
    premier plan (Android TV), barre et pourcentage de volume, état adb.
-6. **Contrôle audio en boucle fermée** — voir la section dédiée : DECK lit
+6. **Contrôle audio en boucle fermée** — voir la section dédiée : ManCave lit
    l'état réel des TV et écrit des volumes **absolus** vérifiés, au lieu
    d'envoyer des bascules aveugles.
 7. **Pairing PIN dans l'interface**, certificat persisté par appareil.
@@ -69,7 +74,7 @@ Prérequis : Docker + Docker Compose, et les TV sur le **même réseau local** q
 l'hôte.
 
 ```bash
-cd deck
+cd salon-tv
 docker compose up -d --build
 ```
 
@@ -99,7 +104,8 @@ Ouvre l'app, déplie **Réglages → Appareils, pièces & marque** :
 1. **Scanner le réseau** (~10 s) → la liste des TV trouvées s'affiche → bouton
    **Ajouter** sur chacune. Le champ **Pièce** juste au-dessus détermine la
    pièce d'affectation (ex. `Man Cave`), et le champ **Nom** l'étiquette.
-2. Ou **ajout manuel** : nom, type (Android TV / Fire TV), IP, pièce.
+2. Ou **ajout manuel** : nom, type (liste issue du catalogue), IP, pièce.
+   Le bouton **Guide** à côté du type explique comment préparer ce modèle.
 
 Le registre est enregistré dans `data/devices.json` et appliqué **à chaud** —
 aucun redémarrage.
@@ -110,7 +116,7 @@ aucun redémarrage.
 ### Migration depuis une installation à deux TV
 
 Si `data/devices.json` n'existe pas encore et que `SHIELD_HOST` / `FIRETV_HOST`
-sont définis, DECK crée automatiquement les deux appareils correspondants **et
+sont définis, ManCave crée automatiquement les deux appareils correspondants **et
 reprend le certificat de pairing existant** (`shield-cert.json`) : rien à
 réappairer.
 
@@ -118,21 +124,28 @@ réappairer.
 
 ## Activer le débogage ADB
 
+**Les instructions sont dans l'application**, adaptées au modèle : bouton
+**Guide d'installation** sur chaque bandeau de TV, et bouton **Guide** à côté
+du sélecteur de type au moment de l'ajout. Les guides couvrent, pas à pas :
+
+- **Fire TV** (Fire TV Stick, Cube, TCL/Insignia/Toshiba Fire TV) — activation
+  du débogage ADB, et quoi faire si la fenêtre d'autorisation ne revient pas
+  (révoquer les autorisations).
+- **Nvidia Shield** — débogage réseau.
+- **Chromecast / Google TV** — 7 appuis sur *Version d'Android TV OS*.
+- **Sony Bravia, Philips, TCL, Hisense, Xiaomi** — parcours Android TV générique.
+- **Roku** — pas d'adb : autorisation du contrôle par le réseau (ECP).
+
 Le canal adb apporte le **contrôle de volume absolu** et l'état réel. Il est
-indispensable sur Fire TV, et fortement recommandé sur Android TV.
+indispensable sur Fire TV, fortement recommandé sur Android TV, et sans objet
+sur Roku.
 
-**Fire TV** — Paramètres → **My Fire TV / Mon Fire TV** → **À propos** →
-appuie **7 fois** sur le nom de l'appareil → retour → **Options pour les
-développeurs** → **Débogage ADB** = activé.
+Après activation : bouton **Connecter** du bandeau. La **première** connexion
+affiche « Autoriser le débogage USB ? » **sur la TV** : coche **Toujours
+autoriser** puis **OK**. L'état passe alors à **adb connecté**.
 
-**Android TV / Shield** — Paramètres → **Préférences relatives à l'appareil** →
-**À propos** → appuie 7 fois sur **Numéro de build** → retour → **Options pour
-les développeurs** → **Débogage réseau** = activé.
-
-Ensuite, dans l'app, bouton **Connecter** du bandeau de la TV. La **première**
-connexion affiche « Autoriser le débogage USB ? » **sur la TV** : coche
-**Toujours autoriser depuis cet ordinateur** puis **OK**. L'état à côté du
-bouton passe alors à **adb connecté**.
+Les guides vivent dans [`src/catalog.js`](src/catalog.js) : les corriger ou en
+ajouter ne demande aucune modification de l'interface.
 
 ---
 
@@ -162,10 +175,10 @@ Aucun réglage préalable sur la TV :
 
 ---
 
-## Le mute : comment DECK le rend fiable
+## Le mute : comment ManCave le rend fiable
 
 Les télécommandes classiques envoient une **bascule** de mute « à l'aveugle » :
-si l'application se trompe sur l'état courant, les scènes s'inversent. DECK
+si l'application se trompe sur l'état courant, les scènes s'inversent. ManCave
 fonctionne en **boucle fermée** — il lit l'état réel, agit par commandes
 **absolues**, puis **vérifie**. Sources possibles, par ordre de préférence
 (champ `muteSource` dans `/api/state`) :
@@ -177,8 +190,52 @@ fonctionne en **boucle fermée** — il lit l'état réel, agit par commandes
 | `events` | Android TV sans adb : boucle fermée sur les événements volume du protocole remote. | Bon. |
 | `intent` / `assumed` | Rien n'est lisible : suivi d'intention persisté. | Dernier recours — un bouton **« Son suivi »** apparaît sous le bandeau pour réaligner l'app sur la réalité **sans** actionner la TV. |
 
-Le bouton « Son suivi » **n'apparaît que** dans le dernier cas : quand DECK lit
+Le bouton « Son suivi » **n'apparaît que** dans le dernier cas : quand ManCave lit
 l'état réel, il n'y a rien à resynchroniser.
+
+---
+
+## Ajouter un type d'appareil
+
+L'architecture est **agnostique du protocole** : adb, TLS/protobuf (Android TV
+Remote v2) et HTTP (Roku ECP) cohabitent déjà. Le reste du système —
+découverte, registre, scènes, interface — se pilote à partir de deux choses :
+le **catalogue** et les **capacités** déclarées.
+
+Trois étapes, aucun autre fichier à toucher :
+
+1. **Décris le type** dans [`src/catalog.js`](src/catalog.js) : libellé, marques
+   couvertes, port par défaut, ports à sonder pendant un scan, capacités, et le
+   guide d'installation affiché dans l'app.
+2. **Écris le pilote** (voir le contrat en tête de [`src/drivers.js`](src/drivers.js)) :
+   `start`, `stop`, `key`, `setMuted`, `standby`, `setMuteIntent`,
+   `connectAdb`, `sendPin`, `getState`. Toute erreur doit porter un message en
+   français : elle remonte telle quelle dans `errors[]`.
+3. **Enregistre-le** dans la table `DRIVERS`.
+
+### Capacités
+
+L'interface et le moteur de scènes s'adaptent tout seuls : un appareil sans
+`volume` n'affiche pas de VU-mètre, sans `adb` pas de bouton *Connecter*, sans
+`dpad` pas de pavé, et la scène *Pause* ignore les appareils sans `transport`
+au lieu de produire une erreur.
+
+| Capacité | Effet |
+|----------|-------|
+| `mute` | bouton Muet ; participe aux scènes solo/silence |
+| `volume` | VU-mètre + pourcentage (niveau absolu lisible) |
+| `transport` | bouton Lecture ; participe à la scène Pause |
+| `dpad` | pavé directionnel repliable |
+| `power` | bouton Alim. ; participe à la scène Extinction |
+| `appInfo` | affiche l'app au premier plan |
+| `pairing` | flux de code PIN |
+| `adb` | bouton *Connecter* + état adb |
+
+`src/roku.js` sert de modèle : ~180 lignes, aucun adb, aucun appairage — la
+preuve que le squelette n'est pas lié à Android.
+
+> **Roku est expérimental** : l'API ECP est documentée et stable, mais ce
+> pilote n'a pas encore tourné sur un appareil réel.
 
 ---
 
@@ -225,7 +282,7 @@ plutôt une marque mémorisable, garde la requête dans le sous-titre :
 
 | Méthode | Route | Réponse |
 |---------|-------|---------|
-| `GET` | `/api/state` | Marque, pièces, appareils (état complet) et catalogue de scènes. |
+| `GET` | `/api/state` | Marque, pièces, appareils (état complet + capacités) et catalogue de scènes. |
 | `GET` | `/healthz` | Sonde de vivacité. |
 | `POST` | `/api/device/:id/key/:key` | Envoie une touche. Appareil inconnu → **404**, touche inconnue → **400**, échec → **502**. |
 | `POST` | `/api/device/:id/connect` | Force une reconnexion adb. `{ adb }` ∈ device/unauthorized/offline/absent. |
@@ -238,7 +295,8 @@ plutôt une marque mémorisable, garde la requête dans le sous-titre :
 | `GET`/`POST` | `/api/scenes/custom` | Liste / crée une scène personnalisée. |
 | `PATCH`/`DELETE` | `/api/scenes/custom/:id` | Modifie / supprime. |
 | `GET`/`POST` | `/api/settings` | Marque (`brandName`, `tagline`). |
-| `POST` | `/api/discover` | Scan du réseau (~10 s) : `{ subnets, androidtv[], firetv[] }`. |
+| `GET` | `/api/catalog` | Types pris en charge : libellés, marques, capacités et guides d'installation. |
+| `POST` | `/api/discover` | Scan du réseau (~10 s) : `{ subnets, candidates[] }` — chaque candidat porte son `type` deviné, son `model` et ses ports ouverts. |
 
 L'interface web n'est qu'un client de cette API — les futures applications iOS
 et Android consommeront exactement les mêmes routes.

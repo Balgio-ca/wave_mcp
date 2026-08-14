@@ -16,9 +16,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from './config.js';
+import { TYPE_IDS, defaultPortOf } from './catalog.js';
 
 const DEVICES_FILE = 'devices.json';
-export const DEVICE_TYPES = ['androidtv', 'firetv'];
+// Types valides = ceux du catalogue (voir catalog.js pour en ajouter un).
+export const DEVICE_TYPES = TYPE_IDS;
 export const DEFAULT_ROOM = 'Salon';
 
 function filePath() {
@@ -49,14 +51,15 @@ export function normalizeDevice(input, existing = {}) {
   const name = String(d.name ?? '').trim();
   if (!name) throw new Error('Nom requis');
   if (!DEVICE_TYPES.includes(d.type)) {
-    throw new Error(`Type invalide: ${d.type} (attendu androidtv ou firetv)`);
+    throw new Error(`Type invalide: ${d.type} (attendu : ${DEVICE_TYPES.join(', ')})`);
   }
   const host = String(d.host ?? '').trim();
   if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.split('.').some((o) => Number(o) > 255)) {
     throw new Error(`Adresse IP invalide: ${host}`);
   }
+  // Port par défaut selon le type (5555 adb, 8060 ECP Roku…).
   const port = d.port === undefined || d.port === null || d.port === ''
-    ? 5555
+    ? defaultPortOf(d.type)
     : Number(d.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error(`Port invalide: ${d.port}`);

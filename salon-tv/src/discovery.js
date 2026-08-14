@@ -12,12 +12,14 @@
 import net from 'node:net';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
+import { probeMap } from './catalog.js';
 
 const PROBE_TIMEOUT = 450;   // ms par hôte/port
 const CONCURRENCY = 64;      // sondes simultanées
 
 export const SHIELD_PORT = 6466; // Android TV Remote v2
 export const ADB_PORT = 5555;    // adb TCP
+export const ROKU_PORT = 8060;   // Roku ECP (HTTP)
 
 // /24 candidats : interfaces IPv4 locales + sous-réseaux des IP déjà connues
 // (appareils enregistrés), au cas où l'hôte serait multi-réseaux.
@@ -84,30 +86,54 @@ function adbModel(target) {
   });
 }
 
-// Balaye les sous-réseaux et renvoie les candidats par rôle.
-// { subnets, shield: [{host}], firetv: [{host, model}] }
+// Déduit le type d'appareil à partir des ports ouverts (fonction pure, testée).
+//   6466            -> Android TV (service Remote v2)
+//   6466 + 5555     -> Android TV avec débogage réseau déjà actif
+//   5555 seul       -> Fire TV (adb sans service Remote v2)
+//   8060            -> Roku (ECP)
+// `model` (via adb) affine : une référence « AFT… » est une signature Amazon.
+export function guessType(openPorts, model = null) {
+  const has = (p) => openPorts.includes(p);
+  if (model && /^AFT/i.test(model)) return { type: 'firetv', port: ADB_PORT };
+  if (has(SHIELD_PORT)) return { type: 'androidtv', port: has(ADB_PORT) ? ADB_PORT : SHIELD_PORT };
+  if (has(ADB_PORT)) return { type: 'firetv', port: ADB_PORT };
+  if (has(ROKU_PORT)) return { type: 'roku', port: ROKU_PORT };
+  return null;
+}
+
+// Balaye les sous-réseaux sur TOUS les ports déclarés par le catalogue et
+// devine le type de chaque appareil trouvé.
+// Renvoie { subnets, candidates: [{ host, port, type, model, ports[] }] }.
 export async function discover(knownHosts = []) {
   const subnets = candidateSubnets(knownHosts);
   const hosts = subnets.flatMap((base) =>
     Array.from({ length: 254 }, (_, i) => `${base}.${i + 1}`),
   );
 
-  const tasks = hosts.flatMap((host) => [
-    async () => ((await probe(host, SHIELD_PORT)) ? { host, port: SHIELD_PORT } : null),
-    async () => ((await probe(host, ADB_PORT)) ? { host, port: ADB_PORT } : null),
-  ]);
+  const ports = [...probeMap().keys()];
+  const tasks = hosts.flatMap((host) =>
+    ports.map((port) => async () => ((await probe(host, port)) ? { host, port } : null)),
+  );
   const hits = (await pool(tasks, CONCURRENCY)).filter(Boolean);
 
-  const shield = hits.filter((h) => h.port === SHIELD_PORT).map(({ host }) => ({ host }));
-  const firetvHosts = hits.filter((h) => h.port === ADB_PORT).map(({ host }) => host);
-
-  // Étiquette les candidats adb avec leur modèle (séquentiel : adb n'aime pas
-  // le parallélisme, et il y a rarement plus de 2-3 candidats).
-  const firetv = [];
-  for (const host of firetvHosts) {
-    const model = await adbModel(`${host}:${ADB_PORT}`).catch(() => null);
-    firetv.push({ host, model });
+  // Regroupe les ports ouverts par hôte.
+  const byHost = new Map();
+  for (const { host, port } of hits) {
+    if (!byHost.has(host)) byHost.set(host, []);
+    byHost.get(host).push(port);
   }
 
-  return { subnets, shield, firetv };
+  // Étiquette avec le modèle quand adb est joignable (séquentiel : adb n'aime
+  // pas le parallélisme, et il y a rarement plus de quelques candidats).
+  const candidates = [];
+  for (const [host, open] of byHost) {
+    const model = open.includes(ADB_PORT)
+      ? await adbModel(`${host}:${ADB_PORT}`).catch(() => null)
+      : null;
+    const guess = guessType(open, model);
+    if (!guess) continue;
+    candidates.push({ host, port: guess.port, type: guess.type, model, ports: open });
+  }
+
+  return { subnets, candidates };
 }

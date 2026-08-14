@@ -18,6 +18,8 @@ import {
   removeCustomScene,
 } from './scenes.js';
 import { discover } from './discovery.js';
+import { publicCatalog } from './catalog.js';
+import { supportedTypes } from './drivers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +52,12 @@ app.get('/api/state', (req, res) => {
 });
 
 app.get('/healthz', (req, res) => res.json({ ok: true }));
+
+// Catalogue des types pris en charge : libellés, marques couvertes, capacités
+// et guides d'activation (adb, appairage…) affichés dans l'interface.
+app.get('/api/catalog', (req, res) => {
+  res.json({ types: publicCatalog().filter((t) => supportedTypes().includes(t.id)) });
+});
 
 // --- Contrôle -----------------------------------------------------------
 
@@ -194,8 +202,8 @@ app.post('/api/discover', async (req, res) => {
     }
     const result = await scanInFlight;
     // Marque les hôtes déjà enregistrés pour que l'UI puisse les griser.
-    const tag = (list) => list.map((c) => ({ ...c, known: known.has(c.host) }));
-    res.json({ ok: true, subnets: result.subnets, androidtv: tag(result.shield), firetv: tag(result.firetv) });
+    const candidates = result.candidates.map((c) => ({ ...c, known: known.has(c.host) }));
+    res.json({ ok: true, subnets: result.subnets, candidates });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }

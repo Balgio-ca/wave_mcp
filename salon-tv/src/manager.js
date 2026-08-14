@@ -6,14 +6,7 @@
 // de l'étiquette sinon.
 
 import { DeviceRegistry } from './devices.js';
-import { AndroidTVController } from './androidtv.js';
-import { FireTVController } from './firetv.js';
-
-function makeController(device) {
-  return device.type === 'androidtv'
-    ? new AndroidTVController(device)
-    : new FireTVController(device);
-}
+import { createDriver } from './drivers.js';
 
 export class DeviceManager {
   constructor() {
@@ -28,7 +21,15 @@ export class DeviceManager {
   }
 
   _spawn(device) {
-    const controller = makeController(device);
+    let controller;
+    try {
+      controller = createDriver(device);
+    } catch (err) {
+      // Type sans pilote (registre écrit par une version plus récente) :
+      // on l'ignore proprement au lieu de faire tomber tout le service.
+      console.error(`[deck] ${device.name} : ${err.message}`);
+      return null;
+    }
     this.controllers.set(device.id, controller);
     controller.start();
     return controller;
@@ -101,7 +102,9 @@ export class DeviceManager {
   // ---- État agrégé -----------------------------------------------------
 
   devicesState() {
-    return this.all().map((c) => c.getState());
+    // Les capacités accompagnent l'état : l'interface s'y adapte sans rien
+    // savoir des pilotes (masque le pavé, le VU-mètre, le bouton adb…).
+    return this.all().map((c) => ({ ...c.getState(), capabilities: c.capabilities ?? [] }));
   }
 
   roomsState() {

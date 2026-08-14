@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0a0b0d">
-<title>Multi TV Remote — contrôle plusieurs TV depuis ton téléphone</title>
-<meta name="description" content="Télécommande web pour plusieurs TV : Android TV, Nvidia Shield et Fire TV, groupées par pièce. Coupe le son de toutes les TV sauf une, en un tap. Auto-hébergée.">
+<title>ManCave — Multi TV Universal Remote</title>
+<meta name="description" content="Télécommande universelle pour plusieurs TV : Android TV, Nvidia Shield, Fire TV et Roku, groupées par pièce. Coupe le son de toutes les TV sauf une, en un tap. Auto-hébergée.">
 
 <!-- Installation sur l'écran d'accueil iOS + manifest (nom configurable) -->
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Multi TV Remote">
+<meta name="apple-mobile-web-app-title" content="ManCave">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -318,6 +318,26 @@
     font-size: 16px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
     padding: 14px; border-radius: 5px; min-height: 54px;
   }
+  .modal .ghostgo { border-color: var(--line); background: var(--raise); color: var(--text); }
+
+  /* ---- Guide d'installation ---- */
+  .modal.guide { max-width: 420px; max-height: 82vh; overflow-y: auto; }
+  .gsec { margin-bottom: 18px; }
+  .gsec h3 {
+    font-family: var(--label); font-size: 13px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--phosphor); margin: 0 0 9px;
+    border-bottom: 1px solid var(--line-soft); padding-bottom: 6px;
+  }
+  .gsec ol { margin: 0; padding-left: 20px; }
+  .gsec li {
+    font-family: var(--mono); font-size: 12px; line-height: 1.65; color: var(--text);
+    margin-bottom: 8px;
+  }
+  .gsec li b { color: var(--phosphor); font-weight: 500; }
+  .gbrands {
+    font-family: var(--mono); font-size: 10px; color: var(--faint);
+    line-height: 1.6; margin: -6px 0 16px;
+  }
 
   /* ---- Toast ---- */
   .toast {
@@ -336,8 +356,8 @@
 
   <header class="top">
     <div class="brand">
-      <h1 id="brandName" class="long">MULTI TV REMOTE</h1>
-      <span class="tag" id="brandTag">man cave control</span>
+      <h1 id="brandName">MANCAVE</h1>
+      <span class="tag" id="brandTag">multi tv universal remote</span>
     </div>
     <span class="clock" id="clock">—</span>
   </header>
@@ -362,10 +382,8 @@
         </div>
         <div class="set-row">
           <span class="who">Type</span>
-          <select class="sel" id="nd-type">
-            <option value="androidtv">Android TV / Shield</option>
-            <option value="firetv">Fire TV</option>
-          </select>
+          <select class="sel" id="nd-type"></select>
+          <button class="netbtn ghost" id="typeGuide">Guide</button>
         </div>
         <div class="set-row">
           <span class="who">IP</span>
@@ -405,6 +423,15 @@
       <p id="pinWho">Un code à 6 caractères (chiffres et lettres A–F) s'affiche sur la TV. Saisis-le ci-dessous.</p>
       <input id="pin" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="6" placeholder="A1B2C3" autocomplete="off">
       <button class="go" id="pinGo">Valider</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="guideOverlay">
+    <div class="modal guide">
+      <h2 id="guideTitle">Guide</h2>
+      <p id="guideIntro"></p>
+      <div id="guideBody"></div>
+      <button class="go ghostgo" id="guideClose">Fermer</button>
     </div>
   </div>
 
@@ -453,7 +480,7 @@ function structureKey() {
 
 function render(next) {
   state = next;
-  const bname = state.brand?.name || 'MULTI TV REMOTE';
+  const bname = state.brand?.name || 'MANCAVE';
   const h1 = document.getElementById('brandName');
   h1.textContent = bname;
   h1.classList.toggle('long', bname.length > 9);
@@ -515,14 +542,25 @@ function buildLayout() {
   for (const d of room.devices) {
     const el = document.getElementById('strip-' + d.id);
     if (openState[d.id]) el.classList.add('open');
-    const m = el.querySelector('.meter');
-    for (let i = 0; i < 20; i++) m.appendChild(document.createElement('i'));
+    const m = el.querySelector('.meter');   // absent si pas de capacité volume
+    if (m) for (let i = 0; i < 20; i++) m.appendChild(document.createElement('i'));
   }
   renderDeviceList();
 }
 
+// Le bandeau se construit à partir des CAPACITÉS déclarées par le pilote :
+// un appareil sans pavé directionnel, sans volume absolu ou sans canal adb
+// n'affiche simplement pas les contrôles correspondants.
 function stripHTML(d) {
-  const isATV = d.kind === 'androidtv';
+  const can = (c) => (d.capabilities || []).includes(c);
+  const buttons = [
+    can('mute') ? tBtn(d.id, 'mute', 'Muet') : '',
+    can('volume') || can('mute') ? tBtn(d.id, 'vol_down', 'Vol −') : '',
+    can('volume') || can('mute') ? tBtn(d.id, 'vol_up', 'Vol +') : '',
+    can('transport') ? tBtn(d.id, 'play_pause', 'Lect.') : '',
+    can('power') ? tBtn(d.id, 'power', 'Alim.', 'danger') : '',
+  ].filter(Boolean);
+
   return `
   <section class="strip" id="strip-${d.id}">
     <div class="strip-head">
@@ -530,29 +568,29 @@ function stripHTML(d) {
       <span class="name">${esc(d.name)}</span>
       <span class="state" data-state="${d.id}">—</span>
     </div>
+    ${can('appInfo') || can('volume') ? `
     <div class="readout">
-      ${isATV ? `<div class="app" data-app="${d.id}">—</div>` : ''}
+      ${can('appInfo') ? `<div class="app" data-app="${d.id}">—</div>` : ''}
+      ${can('volume') ? `
       <div class="vu">
         <div class="meter"></div>
         <div class="pct" data-pct="${d.id}">—</div>
-      </div>
-    </div>
-    <div class="transport">
-      ${tBtn(d.id, 'mute', 'Muet')}
-      ${tBtn(d.id, 'vol_down', 'Vol −')}
-      ${tBtn(d.id, 'vol_up', 'Vol +')}
-      ${tBtn(d.id, 'play_pause', 'Lect.')}
-      ${tBtn(d.id, 'power', 'Alim.', 'danger')}
+      </div>` : ''}
+    </div>` : ''}
+    <div class="transport" style="grid-template-columns:repeat(${buttons.length || 1},1fr)">
+      ${buttons.join('')}
     </div>
     <div class="netrow">
-      <button class="netbtn" data-connect="${d.id}">Connecter</button>
-      <span class="netstat" data-adb="${d.id}">—</span>
+      ${can('adb') ? `<button class="netbtn" data-connect="${d.id}">Connecter</button>
+      <span class="netstat" data-adb="${d.id}">—</span>` : ''}
+      <button class="netbtn ghost" data-guide="${d.type}">Guide d'installation</button>
     </div>
     <div class="resync" data-resync="${d.id}">
       <span class="lbl">Son suivi</span>
       <button class="fixbtn" data-fixmute="${d.id}"><span data-mi="${d.id}">—</span></button>
-      <span class="hint" data-hint="${d.id}">appuie si le solo est à l'envers</span>
+      <span class="hint">appuie si le solo est à l'envers</span>
     </div>
+    ${can('dpad') ? `
     <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
     <div class="dpad-wrap">
       <div class="dpad">
@@ -563,7 +601,7 @@ function stripHTML(d) {
       <div class="dpad-extra">
         ${dBtn(d.id,'back','Retour')}${dBtn(d.id,'home','Accueil')}${dBtn(d.id,'menu','Menu')}
       </div>
-    </div>
+    </div>` : ''}
   </section>`;
 }
 
@@ -617,22 +655,28 @@ function updateLive() {
     const appEl = q(`[data-app="${d.id}"]`);
     if (appEl) appEl.textContent = d.app ? appName(d.app) : (d.online ? '—' : '');
 
+    // VU-mètre : présent seulement si l'appareil expose un volume absolu.
     const meter = q(`#strip-${d.id} .meter`);
     const pct = q(`[data-pct="${d.id}"]`);
-    const vol = typeof d.volume === 'number' ? d.volume : null;
-    meter.classList.toggle('muted', Boolean(d.muted));
-    const lit = vol == null ? 0 : Math.round(vol / 5);
-    [...meter.children].forEach((seg, i) => { seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : ''; });
-    pct.classList.toggle('muted', Boolean(d.muted));
-    pct.textContent = d.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
+    if (meter && pct) {
+      const vol = typeof d.volume === 'number' ? d.volume : null;
+      meter.classList.toggle('muted', Boolean(d.muted));
+      const lit = vol == null ? 0 : Math.round(vol / 5);
+      [...meter.children].forEach((seg, i) => { seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : ''; });
+      pct.classList.toggle('muted', Boolean(d.muted));
+      pct.textContent = d.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
+    }
 
     const mBtn = q(`.btn[data-dev="${d.id}"][data-key="mute"]`);
     if (mBtn) mBtn.classList.toggle('armed', Boolean(d.muted));
 
-    const [txt, cls] = ADB_LABEL[d.adb] || ['—', ''];
+    // État adb : seulement pour les transports qui en ont un.
     const adbEl = q(`[data-adb="${d.id}"]`);
-    adbEl.textContent = txt;
-    adbEl.className = 'netstat ' + cls;
+    if (adbEl) {
+      const [txt, cls] = ADB_LABEL[d.adb] || ['—', ''];
+      adbEl.textContent = txt;
+      adbEl.className = 'netstat ' + cls;
+    }
 
     // Resync : utile seulement quand l'état n'est pas lu sur la TV
     const liveSrc = d.muteSource === 'volume' || d.muteSource === 'device';
@@ -709,8 +753,11 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const guide = e.target.closest('[data-guide]');
+  if (guide) return void openGuide(guide.dataset.guide);
+
   const use = e.target.closest('[data-use]');
-  if (use) return void addFromScan(use.dataset.use, use.dataset.host);
+  if (use) return void addFromScan(use.dataset.use, use.dataset.host, use.dataset.port);
 
   const del = e.target.closest('[data-delete]');
   if (del) return void removeDevice(del.dataset.delete);
@@ -802,11 +849,13 @@ document.getElementById('addDev').addEventListener('click', async () => {
   refresh();
 });
 
-async function addFromScan(type, host) {
+async function addFromScan(type, host, port) {
   const room = document.getElementById('nd-room').value.trim() || activeRoom || 'Salon';
   const name = document.getElementById('nd-name').value.trim()
-    || (type === 'androidtv' ? 'Android TV' : 'Fire TV') + ' ' + host.split('.').pop();
-  const { ok, j } = await post('/api/devices', { name, type, host, room });
+    || (typeOf(type)?.label || type) + ' ' + host.split('.').pop();
+  const body = { name, type, host, room };
+  if (port) body.port = Number(port);
+  const { ok, j } = await post('/api/devices', body);
   if (!ok) return toast(j.error || 'Ajout impossible');
   toast(`${name} ajouté`, true);
   layoutKey = '';
@@ -826,6 +875,55 @@ document.getElementById('saveBrand').addEventListener('click', async () => {
   refresh();
 });
 
+// ---- Catalogue & guides d'installation -------------------------------
+
+let catalog = [];   // types pris en charge, capacités et guides
+
+async function loadCatalog() {
+  try {
+    const j = await (await fetch('/api/catalog')).json();
+    catalog = j.types || [];
+    // Remplit le sélecteur de type depuis le catalogue.
+    const sel = document.getElementById('nd-type');
+    sel.innerHTML = catalog.map((t) =>
+      `<option value="${t.id}">${esc(t.label)}</option>`).join('');
+  } catch { /* silencieux */ }
+}
+
+function typeOf(id) {
+  return catalog.find((t) => t.id === id) || null;
+}
+
+// Rend en gras les **portions** marquées dans les étapes du guide.
+function mdBold(s) {
+  return esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+}
+
+function openGuide(typeId) {
+  const t = typeOf(typeId);
+  if (!t) return toast('Guide indisponible');
+  document.getElementById('guideTitle').textContent = t.setup?.title || t.label;
+  document.getElementById('guideIntro').textContent = t.setup?.intro || '';
+  document.getElementById('guideBody').innerHTML =
+    `<p class="gbrands">Compatible : ${esc((t.brands || []).join(' · '))}</p>` +
+    (t.setup?.sections || []).map((s) => `
+      <div class="gsec">
+        <h3>${esc(s.heading)}</h3>
+        <ol>${s.steps.map((st) => `<li>${mdBold(st)}</li>`).join('')}</ol>
+      </div>`).join('');
+  document.getElementById('guideOverlay').classList.add('show');
+}
+
+document.getElementById('typeGuide').addEventListener('click', () => {
+  openGuide(document.getElementById('nd-type').value);
+});
+document.getElementById('guideClose').addEventListener('click', () => {
+  document.getElementById('guideOverlay').classList.remove('show');
+});
+document.getElementById('guideOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'guideOverlay') e.target.classList.remove('show');
+});
+
 // ---- Scan ------------------------------------------------------------
 
 async function runScan() {
@@ -839,15 +937,12 @@ async function runScan() {
     const r = await fetch('/api/discover', { method: 'POST' });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.status);
-    const rows = [
-      ...(j.androidtv || []).map((c) => foundRow(c, 'androidtv', 'Android TV Remote')),
-      ...(j.firetv || []).map((c) => foundRow(c, 'firetv', c.model ? 'adb · ' + c.model : 'adb')),
-    ];
+    const rows = (j.candidates || []).map(foundRow);
     out.innerHTML = rows.join('');
     const nets = (j.subnets || []).map((s) => s + '.x').join(', ');
     note.textContent = rows.length
       ? `${rows.length} appareil(s) trouvé(s) sur ${nets}`
-      : 'Aucun appareil trouvé. TV allumées ? adb activé ?';
+      : 'Aucun appareil trouvé. TV allumées ? débogage activé ? (voir les guides)';
   } catch (e) {
     note.textContent = 'Échec du scan : ' + (e.message || e);
   } finally {
@@ -855,13 +950,19 @@ async function runScan() {
   }
 }
 
-function foundRow(c, type, kindLabel) {
+// Une ligne de résultat de scan : le type est DEVINÉ par le serveur d'après
+// les ports ouverts, et le modèle relevé via adb quand c'est possible.
+function foundRow(c) {
+  const t = typeOf(c.type);
+  const desc = [t?.label || c.type, c.model, 'ports ' + (c.ports || []).join('/')]
+    .filter(Boolean).join(' · ');
   return `<div class="devrow${c.known ? ' known' : ''}">
     <div class="meta">
       <div class="dn" style="font-family:var(--mono);font-size:13px;color:var(--phosphor)">${esc(c.host)}</div>
-      <div class="dd">${esc(kindLabel)}${c.known ? ' · déjà ajouté' : ''}</div>
+      <div class="dd">${esc(desc)}${c.known ? ' · déjà ajouté' : ''}</div>
     </div>
-    ${c.known ? '' : `<button class="use" data-use="${type}" data-host="${esc(c.host)}">Ajouter</button>`}
+    <button class="use" data-guide="${esc(c.type)}" style="background:transparent;color:var(--dim)">Guide</button>
+    ${c.known ? '' : `<button class="use" data-use="${esc(c.type)}" data-host="${esc(c.host)}" data-port="${c.port}">Ajouter</button>`}
   </div>`;
 }
 document.getElementById('scanBtn').addEventListener('click', runScan);
@@ -924,7 +1025,7 @@ async function loadBrandInputs() {
 tick();
 setInterval(tick, 10000);
 loadBrandInputs();
-refresh();
+loadCatalog().then(refresh);
 setInterval(refresh, 2500);
 </script>
 </body>

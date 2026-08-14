@@ -27,8 +27,8 @@ export const config = {
   // Le nom par défaut EST la requête cible (« multi tv remote ») : c'est ce
   // que cherchent les gens qui ont plusieurs TV. Le man cave est le
   // positionnement, porté par le sous-titre.
-  brandName: saved.brandName ?? (process.env.BRAND_NAME || 'MULTI TV REMOTE'),
-  tagline: saved.tagline ?? (process.env.TAGLINE || 'man cave control'),
+  brandName: saved.brandName ?? (process.env.BRAND_NAME || 'MANCAVE'),
+  tagline: saved.tagline ?? (process.env.TAGLINE || 'multi tv universal remote'),
 
   // Répertoire persistant (certificat Shield, intent mute, réglages).
   dataDir,

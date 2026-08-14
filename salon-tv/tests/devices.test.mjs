@@ -21,10 +21,16 @@ test('normalizeDevice : valide et complète', () => {
 
 test('normalizeDevice : rejette les entrées invalides', () => {
   assert.throws(() => normalizeDevice({ name: '', type: 'firetv', host: '192.168.0.1' }), /Nom requis/);
-  assert.throws(() => normalizeDevice({ name: 'X', type: 'roku', host: '192.168.0.1' }), /Type invalide/);
+  assert.throws(() => normalizeDevice({ name: 'X', type: 'webos', host: '192.168.0.1' }), /Type invalide/);
   assert.throws(() => normalizeDevice({ name: 'X', type: 'firetv', host: '999.1.1.1' }), /IP invalide/);
   assert.throws(() => normalizeDevice({ name: 'X', type: 'firetv', host: 'abc' }), /IP invalide/);
   assert.throws(() => normalizeDevice({ name: 'X', type: 'firetv', host: '192.168.0.1', port: 70000 }), /Port invalide/);
+});
+
+test('normalizeDevice : type du catalogue + port par défaut associé', () => {
+  const r = normalizeDevice({ name: 'Bar', type: 'roku', host: '192.168.0.40' });
+  assert.equal(r.type, 'roku');
+  assert.equal(r.port, 8060);   // port ECP, pas 5555
 });
 
 test('registre : ajout, pièces, doublon, suppression', () => {

@@ -10,8 +10,8 @@ services:
       PORT: "8099"
       DATA_DIR: "/app/data"
       # Marque affichée (modifiable ensuite dans les réglages de l'app).
-      BRAND_NAME: "MULTI TV REMOTE"
-      TAGLINE: "man cave control"
+      BRAND_NAME: "MANCAVE"
+      TAGLINE: "multi tv universal remote"
       # --- Amorçage (facultatif) ---
       # Au TOUT premier démarrage, si data/devices.json n'existe pas encore,
       # ces variables créent automatiquement deux appareils. Ensuite, tout se
