@@ -369,6 +369,83 @@
     margin: 0 auto;
   }
 
+  /* ---- Réglages / découverte réseau ---- */
+  .set-body { padding: 4px 14px 16px; }
+  .set-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 9px;
+    flex-wrap: wrap;
+  }
+  .set-row .who {
+    font-family: var(--label);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+    min-width: 64px;
+    white-space: nowrap;
+    flex: none;
+  }
+  .ipin {
+    flex: 1;
+    min-width: 130px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    background: #0d0f12;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 11px 10px;
+    min-height: 44px;
+  }
+  .ipin:focus { outline: none; border-color: var(--phosphor); }
+  .set-actions { display: flex; gap: 8px; margin: 12px 0 4px; }
+  .set-actions .netbtn { flex: 1; }
+  .scan-note {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--faint);
+    letter-spacing: 0.05em;
+    margin: 6px 0 0;
+  }
+  .found {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    background: #14171b;
+    padding: 10px 12px;
+    margin-top: 8px;
+  }
+  .found .ip { font-family: var(--mono); font-size: 13px; color: var(--phosphor); }
+  .found .kind {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .found .use {
+    margin-left: auto;
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #1c2026;
+    color: var(--text);
+    font-family: var(--label);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    min-height: 40px;
+    border-radius: 5px;
+  }
+  .found .use:active { border-color: var(--phosphor); }
+
   /* ---- Modale de pairing PIN ---- */
   .overlay {
     display: none;
@@ -469,6 +546,29 @@
   <p class="section-label">Canaux</p>
   <div id="strips"></div>
 
+  <p class="section-label">Réglages</p>
+  <section class="strip" id="strip-settings">
+    <button class="dpad-toggle" data-toggle="settings">Réseau &amp; appareils <span class="chev">▾</span></button>
+    <div class="dpad-wrap">
+      <div class="set-body">
+        <div class="set-row">
+          <span class="who">Shield</span>
+          <input class="ipin" id="ip-shield" inputmode="decimal" placeholder="192.168.0.70" autocomplete="off">
+        </div>
+        <div class="set-row">
+          <span class="who">Fire TV</span>
+          <input class="ipin" id="ip-firetv" inputmode="decimal" placeholder="192.168.0.13" autocomplete="off">
+        </div>
+        <div class="set-actions">
+          <button class="netbtn" id="saveIps">Enregistrer</button>
+          <button class="netbtn" id="scanBtn">Scanner le réseau</button>
+        </div>
+        <p class="scan-note" id="scanNote">Le scan cherche les TV sur le réseau local (~10 s).</p>
+        <div id="scanResults"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- Modale PIN -->
   <div class="overlay" id="overlay">
     <div class="modal">
@@ -544,7 +644,7 @@ function buildStrips() {
       <div class="resync">
         <span class="lbl">Son suivi</span>
         <button class="fixbtn" data-fixmute="${d.id}"><span id="mi-${d.id}">—</span></button>
-        <span class="hint">appuie si le solo est à l'envers</span>
+        <span class="hint" id="hint-${d.id}">appuie si le solo est à l'envers</span>
       </div>` : ''}
       <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
       <div class="dpad-wrap">
@@ -597,6 +697,15 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const use = e.target.closest('[data-use]');
+  if (use) {
+    const { use: role, host } = use.dataset;
+    return void saveSettings(
+      role === 'shield' ? { shieldHost: host } : { firetvHost: host },
+      `${role === 'shield' ? 'Shield' : 'Fire TV'} → ${host}`,
+    );
+  }
+
   const conn = e.target.closest('[data-connect]');
   if (conn) return void connectDev(conn.dataset.connect);
 
@@ -623,6 +732,81 @@ async function connectDev(dev) {
     refresh();
   } catch { toast('Réseau injoignable'); }
 }
+
+// ---- Réglages / découverte réseau ----
+async function loadSettings() {
+  try {
+    const r = await fetch('/api/settings');
+    const j = await r.json();
+    document.getElementById('ip-shield').value = j.shieldHost || '';
+    document.getElementById('ip-firetv').value = j.firetvHost || '';
+  } catch { /* silencieux : la section reste vide */ }
+}
+
+async function saveSettings(body, okMsg) {
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(j.error || 'Réglages refusés');
+    toast(okMsg || 'Réglages enregistrés');
+    loadSettings();
+    refresh();
+  } catch { toast('Réseau injoignable'); }
+}
+
+function saveIps() {
+  const body = {};
+  const sh = document.getElementById('ip-shield').value.trim();
+  const ft = document.getElementById('ip-firetv').value.trim();
+  if (sh) body.shieldHost = sh;
+  if (ft) body.firetvHost = ft;
+  if (!Object.keys(body).length) return toast('Saisis au moins une IP');
+  saveSettings(body);
+}
+
+async function runScan() {
+  const btn = document.getElementById('scanBtn');
+  const note = document.getElementById('scanNote');
+  const out = document.getElementById('scanResults');
+  btn.disabled = true;
+  note.textContent = 'Scan en cours…';
+  out.innerHTML = '';
+  try {
+    const r = await fetch('/api/discover', { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    const rows = [];
+    for (const c of j.shield || []) {
+      rows.push(foundRow(c.host, 'Android TV Remote', 'shield'));
+    }
+    for (const c of j.firetv || []) {
+      rows.push(foundRow(c.host, c.model ? `adb · ${c.model}` : 'adb', 'firetv'));
+    }
+    out.innerHTML = rows.join('');
+    note.textContent = rows.length
+      ? `${rows.length} appareil(s) trouvé(s) sur ${(j.subnets || []).join(', ')}.x`
+      : 'Aucun appareil trouvé. TV allumées ? adb activé ?';
+  } catch (e) {
+    note.textContent = 'Échec du scan : ' + (e.message || e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function foundRow(host, kindLabel, role) {
+  const target = role === 'shield' ? 'Shield' : 'Fire TV';
+  return `<div class="found">
+    <div><div class="ip">${host}</div><div class="kind">${kindLabel}</div></div>
+    <button class="use" data-use="${role}" data-host="${host}">→ ${target}</button>
+  </div>`;
+}
+
+document.getElementById('saveIps').addEventListener('click', saveIps);
+document.getElementById('scanBtn').addEventListener('click', runScan);
 
 // Réaligne le suivi mute sans toucher la TV (corrige un décalage de phase).
 async function fixMute(dev) {
@@ -715,11 +899,18 @@ function render(state) {
     const mBtn = document.querySelector(`.btn[data-dev="${d.id}"][data-key="mute"]`);
     if (mBtn) mBtn.classList.toggle('armed', Boolean(s.muted));
 
-    // Étiquette du suivi mute (bouton resync, Fire TV)
+    // Étiquette du suivi mute (bouton resync, Fire TV).
+    // Si l'état est lu directement sur la TV (muteSource=device), le resync
+    // manuel devient inutile : on l'indique et on neutralise le bouton.
     const mi = document.getElementById('mi-' + d.id);
     if (mi) {
       mi.textContent = s.muted ? 'MUET' : 'ACTIF';
       mi.parentElement.classList.toggle('muted', Boolean(s.muted));
+      const live = s.muteSource === 'device';
+      mi.parentElement.disabled = live;
+      mi.parentElement.style.opacity = live ? '0.55' : '';
+      const hint = document.getElementById('hint-' + d.id);
+      if (hint) hint.textContent = live ? 'lu sur la TV — sync auto' : "appuie si le solo est à l'envers";
     }
 
     // État adb (bandeau Fire TV)
@@ -801,6 +992,7 @@ function tick() {
 
 tick();
 setInterval(tick, 10000);
+loadSettings();
 refresh();
 setInterval(refresh, 2500);
 </script>

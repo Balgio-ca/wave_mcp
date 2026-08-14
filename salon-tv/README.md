@@ -40,6 +40,7 @@ UGREEN** (`192.168.0.191`).
 2. **Scènes** qui touchent les deux TV en un seul geste :
    - `shield_solo` — Shield au son, Fire TV en sourdine ;
    - `firetv_solo` — l'inverse ;
+   - `switch` — bascule le solo d'une TV à l'autre selon l'état courant ;
    - `silence` — les deux en sourdine ;
    - `pause_all` — lecture/pause sur les deux ;
    - `off` — les deux en veille.
@@ -50,6 +51,14 @@ UGREEN** (`192.168.0.191`).
    `secret`, le frontend affiche un champ de saisie, `POST /api/shield/pin`
    envoie le code. Le certificat est **persisté dans `/app/data`** pour survivre
    aux redémarrages ; il est supprimé et re-généré sur l'événement `unpaired`.
+5. **Découverte réseau & réglages dans l'interface** (section « Réglages ») :
+   scan du réseau local (port 6466 = Android TV Remote, port 5555 = adb),
+   affectation d'un appareil trouvé en un tap, saisie manuelle des IP. Les
+   réglages sont persistés dans `DATA_DIR/settings.json` (prioritaires sur les
+   variables d'environnement) et appliqués **sans redémarrage**.
+6. **Connexion Fire TV depuis l'app** : bouton « Connecter » + état adb en
+   direct (connectée / à autoriser sur la TV / hors ligne / adb absent), avec
+   récupération automatique d'une connexion adb décrochée.
 
 ---
 
@@ -181,10 +190,16 @@ service ne le « voit » pas et son idée du mute devient fausse. La prochaine s
 peut alors sembler ne rien faire (elle pense être déjà dans le bon état) ou
 inverser le muet.
 
-**Pour resynchroniser** : appuie sur le bouton **Muet** du bandeau Fire TV dans
-l'interface — il bascule et réaligne l'intention suivie sur la réalité. En
-pratique, pilote le mute de la Fire TV **depuis l'app** plutôt qu'avec la
-télécommande physique.
+**Atténuation automatique** : à chaque sonde (5 s), le service tente de lire le
+mute **réel** via `dumpsys audio` (`muteSource: "device"` dans `/api/state`).
+Si ta TV l'expose, le suivi se réaligne tout seul et le problème disparaît —
+l'interface affiche alors « lu sur la TV — sync auto ». Sinon
+(`muteSource: "intent"`), on retombe sur le suivi d'intention ci-dessous.
+
+**Pour resynchroniser manuellement** : bouton **« Son suivi »** du bandeau
+Fire TV — il inverse ce que l'app *croit* **sans** actionner la TV. En pratique,
+pilote le mute de la Fire TV **depuis l'app** plutôt qu'avec la télécommande
+physique.
 
 Le Shield, lui, rapporte son mute et son volume correctement : aucune de ces
 limites ne s'applique à lui.
@@ -298,8 +313,13 @@ l'interface. Rien n'est exposé publiquement, aucun port ouvert sur la box.
 |---------|-----------------------------|----------------------------------------------------------------|
 | `GET`   | `/api/state`                | État des deux TV + liste des scènes.                           |
 | `POST`  | `/api/key/:device/:key`     | Envoie une touche. `device` ∈ {`shield`,`firetv`}. Appareil inconnu → **404**, touche inconnue → **400**, échec d'envoi → **502**. |
-| `POST`  | `/api/scene/:name`          | Déclenche une scène. Scène inconnue → **404**. Sinon **200** avec `errors[]` par appareil (jamais de 500 global). |
-| `POST`  | `/api/shield/pin`           | Corps `{ "pin": "123456" }`. PIN invalide → **400**, pas de pairing en cours → **409**. |
+| `POST`  | `/api/scene/:name`          | Déclenche une scène (`switch` résout vers le solo opposé ; la réponse contient `scene` effective et `requested`). Scène inconnue → **404**. Sinon **200** avec `errors[]` par appareil (jamais de 500 global). |
+| `POST`  | `/api/shield/pin`           | Corps `{ "pin": "A1B2C3" }` (6 caractères hexadécimaux). Invalide → **400**, pas de pairing en cours → **409**. |
+| `POST`  | `/api/firetv/connect`       | Force une reconnexion adb. **200** `{ adb, online }` (`adb` ∈ device/unauthorized/offline/absent). |
+| `POST`  | `/api/firetv/mute`          | Corps `{ "muted": bool }` : réaligne le suivi de mute **sans** actionner la TV. Non-booléen → **400**. |
+| `GET`   | `/api/settings`             | IP courantes `{ shieldHost, firetvHost, firetvPort }`.         |
+| `POST`  | `/api/settings`             | Modifie les IP/port ; persiste et applique à chaud. IP/port invalide → **400**. |
+| `POST`  | `/api/discover`             | Scan du réseau local (~10 s). **200** `{ subnets, shield[], firetv[] }`. |
 
 Exemple de `/api/state` :
 

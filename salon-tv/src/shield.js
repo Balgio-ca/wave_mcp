@@ -29,6 +29,7 @@ export class ShieldController {
     this.connecting = false;     // un connect() est en cours
     this.reconnectTimer = null;  // un reconnect est déjà programmé
     this.backoff = RECONNECT_MIN;
+    this._started = false;       // la boucle de sonde tourne
 
     // État observable exposé à l'API.
     this.status = {
@@ -48,11 +49,40 @@ export class ShieldController {
       console.warn('[shield] SHIELD_HOST non défini — contrôleur inactif.');
       return;
     }
+    this._begin();
+  }
+
+  _begin() {
+    if (this._started) return;
+    this._started = true;
     this._loadCert();
     this.connect();
     // Sonde de présence indépendante de la bibliothèque : donne un
     // online/offline honnête même sans événement `close`.
     setInterval(() => this._probe(), PROBE_INTERVAL);
+  }
+
+  // Change l'hôte à chaud (réglages / découverte réseau).
+  setHost(host) {
+    if (host === config.shield.host) return;
+    console.log(`[shield] Nouvel hôte : ${host}`);
+    config.shield.host = host;
+    this.status.configured = Boolean(host);
+    // Coupe la connexion courante et repart proprement. Si la nouvelle TV
+    // n'est pas celle du certificat, le flux `unpaired` relancera le pairing.
+    this._clearReconnect();
+    try { this.remote?.stop?.(); } catch { /* ignore */ }
+    this.remote = null;
+    this.connecting = false;
+    this.backoff = RECONNECT_MIN;
+    this.status.online = false;
+    this.status.awake = false;
+    this.status.pairing = false;
+    this.status.app = null;
+    this.status.volume = null;
+    if (!this.status.configured) return;
+    if (!this._started) this._begin();
+    else this._scheduleReconnect(0);
   }
 
   _loadCert() {
@@ -258,9 +288,15 @@ export class ShieldController {
     if (!codeName) throw new Error(`Touche inconnue: ${name}`);
     const code = RemoteKeyCode[codeName];
     this.remote.sendKey(code, RemoteDirection.SHORT);
+    // Mise à jour optimiste du mute : certains Shield n'émettent pas toujours
+    // l'événement `volume` après une bascule. Sans ça, l'état suivi ne changerait
+    // jamais et chaque scène re-basculerait (« on/off/on/off »). L'événement
+    // `volume`, quand il arrive, écrase cette valeur avec la réalité.
+    if (name === 'mute') this.status.muted = !this.status.muted;
   }
 
-  // Amène le mute à l'état voulu (le Shield rapporte le mute de façon fiable).
+  // Amène le mute à l'état voulu. key('mute') met à jour l'état suivi de façon
+  // optimiste, donc deux appels successifs ne re-basculent pas à tort.
   setMuted(desired) {
     this._assertReady();
     if (this.status.muted !== desired) this.key('mute');

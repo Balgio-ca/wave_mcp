@@ -3,11 +3,12 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config } from './config.js';
+import { config, saveSettings } from './config.js';
 import { ShieldController } from './shield.js';
 import { FireTVController } from './firetv.js';
 import { isKnownKey } from './keys.js';
 import { isKnownScene, runScene, SCENE_NAMES } from './scenes.js';
+import { discover } from './discovery.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -89,6 +90,73 @@ app.post('/api/firetv/mute', (req, res) => {
   }
   firetv.setMuteIntent(muted);
   res.json({ ok: true, muted });
+});
+
+// --- Réglages & découverte réseau --------------------------------------
+
+const IP_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
+function validIp(s) {
+  return typeof s === 'string' && IP_RE.test(s) && s.split('.').every((o) => Number(o) <= 255);
+}
+
+// Réglages courants (IP des TV).
+app.get('/api/settings', (req, res) => {
+  res.json({
+    shieldHost: config.shield.host,
+    firetvHost: config.firetv.host,
+    firetvPort: config.firetv.port,
+  });
+});
+
+// Modifie les réglages : persiste puis applique à chaud aux contrôleurs.
+app.post('/api/settings', (req, res) => {
+  const { shieldHost, firetvHost, firetvPort } = req.body ?? {};
+  const patch = {};
+  if (shieldHost !== undefined) {
+    if (!validIp(shieldHost)) return res.status(400).json({ error: `IP Shield invalide: ${shieldHost}` });
+    patch.shieldHost = shieldHost;
+  }
+  if (firetvHost !== undefined) {
+    if (!validIp(firetvHost)) return res.status(400).json({ error: `IP Fire TV invalide: ${firetvHost}` });
+    patch.firetvHost = firetvHost;
+  }
+  if (firetvPort !== undefined) {
+    const p = Number(firetvPort);
+    if (!Number.isInteger(p) || p < 1 || p > 65535) {
+      return res.status(400).json({ error: `Port Fire TV invalide: ${firetvPort}` });
+    }
+    patch.firetvPort = p;
+  }
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: 'Aucun réglage fourni (shieldHost, firetvHost, firetvPort)' });
+  }
+  saveSettings(patch);
+  if (patch.shieldHost !== undefined) shield.setHost(patch.shieldHost);
+  if (patch.firetvHost !== undefined || patch.firetvPort !== undefined) {
+    firetv.setTarget(patch.firetvHost ?? config.firetv.host, patch.firetvPort ?? config.firetv.port);
+  }
+  res.json({
+    ok: true,
+    shieldHost: config.shield.host,
+    firetvHost: config.firetv.host,
+    firetvPort: config.firetv.port,
+  });
+});
+
+// Balaye le réseau local à la recherche des TV (quelques secondes).
+// Garde anti-empilement : un seul scan à la fois, les appels concurrents
+// partagent le même résultat.
+let scanInFlight = null;
+app.post('/api/discover', async (req, res) => {
+  try {
+    if (!scanInFlight) {
+      scanInFlight = discover().finally(() => { scanInFlight = null; });
+    }
+    const result = await scanInFlight;
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
 });
 
 // --- Frontend statique -------------------------------------------------

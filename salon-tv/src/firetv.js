@@ -49,14 +49,17 @@ export class FireTVController {
       awake: false,
       // 'device' | 'offline' | 'unauthorized' | 'absent' | 'inconnu'
       adb: 'inconnu',
-      // État de mute *suivi* (intention), pas mesuré sur l'appareil.
+      // État de mute. Lu sur l'appareil si possible ('device'), sinon suivi
+      // d'intention ('intent'). muteSource indique la source courante.
       muted: false,
+      muteSource: 'intent',
     };
     this._loadMute();
 
     this._chain = Promise.resolve(); // file d'attente : sérialise les appels adb
     this._refreshing = false;
     this._failstreak = 0;
+    this._started = false;
   }
 
   start() {
@@ -64,8 +67,32 @@ export class FireTVController {
       console.warn('[firetv] FIRETV_HOST non défini — contrôleur inactif.');
       return;
     }
+    this._begin();
+  }
+
+  _begin() {
+    if (this._started) return;
+    this._started = true;
     this._refresh();
     setInterval(() => this._refresh(), POLL_INTERVAL);
+  }
+
+  // Change la cible à chaud (réglages / découverte réseau).
+  setTarget(host, port) {
+    const target = `${host}:${port}`;
+    if (target === this.target) return;
+    console.log(`[firetv] Nouvelle cible : ${target}`);
+    config.firetv.host = host;
+    config.firetv.port = port;
+    this.target = target;
+    this.status.configured = Boolean(host);
+    this.status.online = false;
+    this.status.awake = false;
+    this.status.adb = 'inconnu';
+    this._failstreak = 0;
+    if (!this.status.configured) return;
+    if (!this._started) this._begin();
+    else this._refresh();
   }
 
   // Sérialise tout accès adb : fn ne démarre qu'une fois la précédente terminée.
@@ -151,6 +178,7 @@ export class FireTVController {
         this.status.adb = state;
         if (state === 'device') {
           this._markOnline(await this._isAwake());
+          await this._reconcileMute(); // aligne le mute sur la réalité si lisible
         } else {
           this._markProblem();
         }
@@ -175,6 +203,7 @@ export class FireTVController {
       this.status.adb = state;
       if (state === 'device') {
         this._markOnline(await this._isAwake());
+        await this._reconcileMute();
       } else {
         this._markProblem();
       }
@@ -190,6 +219,47 @@ export class FireTVController {
       return false;
     } catch {
       return false;
+    }
+  }
+
+  // Tente de lire l'état de mute RÉEL du flux musique via `dumpsys audio`.
+  // Renvoie true/false si un signal net est trouvé, sinon null (indéterminé).
+  // Gère plusieurs formats Android/Fire OS ; ne renvoie jamais un faux positif :
+  // en cas de doute -> null (on retombe alors sur le suivi d'intention).
+  async _readMute() {
+    let dump;
+    try {
+      dump = await adb(['-s', this.target, 'shell', 'dumpsys', 'audio'], { timeout: 4000 });
+    } catch {
+      return null;
+    }
+    // 1) Masque de bits « Muted streams: 0x8 » (STREAM_MUSIC = index 3 -> bit 3).
+    let m = dump.match(/Muted\s+streams:\s*(0x[0-9a-fA-F]+|\d+)/i);
+    if (m) {
+      const mask = m[1].toLowerCase().startsWith('0x') ? parseInt(m[1], 16) : parseInt(m[1], 10);
+      if (!Number.isNaN(mask)) return Boolean(mask & (1 << 3));
+    }
+    // 2) Bloc STREAM_MUSIC avec « Muted: true/false ». Le (?!STREAM_) empêche
+    //    la fenêtre de déborder sur le bloc du flux suivant.
+    m = dump.match(/STREAM_MUSIC(?:(?!STREAM_)[\s\S]){0,400}?Muted:\s*(true|false)/i);
+    if (m) return m[1].toLowerCase() === 'true';
+    // 3) Ancien format « Mute count: N » dans le bloc STREAM_MUSIC (N>0 = muet).
+    m = dump.match(/STREAM_MUSIC(?:(?!STREAM_)[\s\S]){0,400}?Mute\s*count:\s*(\d+)/i);
+    if (m) return parseInt(m[1], 10) > 0;
+    return null; // indéterminé -> on garde l'intention suivie
+  }
+
+  // Aligne le mute suivi sur l'état réel quand la TV l'expose.
+  async _reconcileMute() {
+    const real = await this._readMute();
+    if (real === null) {
+      this.status.muteSource = 'intent';
+      return;
+    }
+    this.status.muteSource = 'device';
+    if (this.status.muted !== real) {
+      this.status.muted = real;
+      this._saveMute();
     }
   }
 
