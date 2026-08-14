@@ -178,31 +178,38 @@ Si la fenêtre ne s'ouvre pas, vérifie que la Shield est allumée et joignable
 
 ## ⚠️ Le mute de la Fire TV (à lire)
 
-La Fire TV **ne rapporte pas de façon fiable son état de sourdine**. Le service
-suit donc l'**intention** côté serveur (fichier `data/firetv-mute.json`) et
-n'envoie la touche muet **que si l'état voulu diffère de l'état suivi**. C'est ce
-qui permet aux scènes (`shield_solo`, `firetv_solo`, `silence`) d'être
-déterministes.
+Le mute est piloté en **boucle fermée** : le service lit l'état réel, agit par
+commandes **absolues** quand c'est possible, et **vérifie** le résultat. Plus
+aucune bascule aveugle. Ordre de préférence, par TV (visible dans `/api/state`
+via `muteSource`) :
 
-**Conséquence : la télécommande physique de la Fire TV peut désynchroniser ce
-suivi.** Si quelqu'un met/enlève le muet avec la télécommande d'origine, le
-service ne le « voit » pas et son idée du mute devient fausse. La prochaine scène
-peut alors sembler ne rien faire (elle pense être déjà dans le bon état) ou
-inverser le muet.
+1. **`volume`** — contrôle absolu du volume via adb (`media volume --set`) :
+   mute = mémoriser le niveau puis écrire **0**, unmute = restaurer le niveau
+   mémorisé. Chaque écriture est vérifiée par relecture. La télécommande
+   physique ne peut **plus** désynchroniser l'app : l'état affiché est relu sur
+   la TV toutes les 5 s. C'est le mode normal pour la Fire TV, et pour le
+   Shield quand son canal adb est connecté (voir ci-dessous).
+2. **`device`** — la TV n'accepte pas les commandes volume mais expose son mute
+   dans `dumpsys audio` : touche muet + relecture de contrôle.
+3. **`events`** (Shield) — boucle fermée sur les événements volume du protocole
+   remote.
+4. **`intent`/`assumed`** — dernier recours : suivi d'intention persisté, avec
+   le bouton **« Son suivi »** pour réaligner manuellement (il n'apparaît actif
+   que dans ce mode).
 
-**Atténuation automatique** : à chaque sonde (5 s), le service tente de lire le
-mute **réel** via `dumpsys audio` (`muteSource: "device"` dans `/api/state`).
-Si ta TV l'expose, le suivi se réaligne tout seul et le problème disparaît —
-l'interface affiche alors « lu sur la TV — sync auto ». Sinon
-(`muteSource: "intent"`), on retombe sur le suivi d'intention ci-dessous.
+### Canal adb du Shield (recommandé)
 
-**Pour resynchroniser manuellement** : bouton **« Son suivi »** du bandeau
-Fire TV — il inverse ce que l'app *croit* **sans** actionner la TV. En pratique,
-pilote le mute de la Fire TV **depuis l'app** plutôt qu'avec la télécommande
-physique.
+Le Shield gagne la vérité terrain (volume, mute, éveil) via **adb réseau** :
 
-Le Shield, lui, rapporte son mute et son volume correctement : aucune de ces
-limites ne s'applique à lui.
+1. Sur le Shield : **Paramètres → Préférences relatives à l'appareil →
+   Options pour les développeurs → Débogage réseau** = activé. (Si tu utilises
+   déjà atvTools sur le Shield, c'est déjà fait.)
+2. La première connexion affiche « Autoriser le débogage USB ? » sur le
+   Shield : coche **Toujours autoriser** puis OK. L'UI le signale par
+   « à autoriser sur la TV » à côté du bouton **Connecter** du bandeau Shield.
+
+Sans ce canal, le Shield reste pilotable (protocole remote), mais le mute
+retombe sur les modes 3/4, moins robustes.
 
 ---
 
@@ -316,6 +323,8 @@ l'interface. Rien n'est exposé publiquement, aucun port ouvert sur la box.
 | `POST`  | `/api/scene/:name`          | Déclenche une scène (`switch` résout vers le solo opposé ; la réponse contient `scene` effective et `requested`). Scène inconnue → **404**. Sinon **200** avec `errors[]` par appareil (jamais de 500 global). |
 | `POST`  | `/api/shield/pin`           | Corps `{ "pin": "A1B2C3" }` (6 caractères hexadécimaux). Invalide → **400**, pas de pairing en cours → **409**. |
 | `POST`  | `/api/firetv/connect`       | Force une reconnexion adb. **200** `{ adb, online }` (`adb` ∈ device/unauthorized/offline/absent). |
+| `POST`  | `/api/shield/connect`       | Force une reconnexion du canal adb du Shield (vérité terrain volume/mute). **200** `{ adb }`. |
+| `GET`   | `/healthz`                  | Sonde de vivacité (healthcheck Docker/supervision). **200** `{ ok: true }`. |
 | `POST`  | `/api/firetv/mute`          | Corps `{ "muted": bool }` : réaligne le suivi de mute **sans** actionner la TV. Non-booléen → **400**. |
 | `GET`   | `/api/settings`             | IP courantes `{ shieldHost, firetvHost, firetvPort }`.         |
 | `POST`  | `/api/settings`             | Modifie les IP/port ; persiste et applique à chaud. IP/port invalide → **400**. |

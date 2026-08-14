@@ -74,6 +74,14 @@ app.post('/api/shield/pin', (req, res) => {
   }
 });
 
+// Force une reconnexion du canal adb du Shield : POST /api/shield/connect
+// (nécessite « débogage réseau » activé sur le Shield ; sert la vérité
+// terrain volume/mute).
+app.post('/api/shield/connect', async (req, res) => {
+  const result = await shield.connectSidecar();
+  res.json({ ok: result.adb === 'device', ...result });
+});
+
 // Force une reconnexion adb de la Fire TV : POST /api/firetv/connect
 // Renvoie l'état adb ('device' | 'unauthorized' | 'offline' | 'absent' | ...).
 app.post('/api/firetv/connect', async (req, res) => {
@@ -163,7 +171,20 @@ app.post('/api/discover', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-app.listen(config.port, () => {
+// Sonde de vivacité (Docker healthcheck, supervision).
+app.get('/healthz', (req, res) => res.json({ ok: true }));
+
+const server = app.listen(config.port, () => {
   console.log(`salon-tv à l'écoute sur http://0.0.0.0:${config.port}`);
   console.log(`  Shield : ${config.shield.host || '(non défini)'}  Fire TV : ${config.firetv.host || '(non défini)'}:${config.firetv.port}`);
 });
+
+// Arrêt propre (docker stop / Ctrl-C) : ferme le serveur HTTP puis sort.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => {
+    console.log(`\n[salon-tv] ${sig} reçu, arrêt…`);
+    server.close(() => process.exit(0));
+    // Filet de sécurité si des connexions traînent.
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
+}

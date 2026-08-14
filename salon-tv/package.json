@@ -8,7 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "androidtv-remote": "^1.0.10",

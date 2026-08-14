@@ -621,14 +621,13 @@ function buildStrips() {
         <span class="name">${d.name}</span>
         <span class="state" id="state-${d.id}">—</span>
       </div>
-      ${d.hasData ? `
       <div class="readout">
-        <div class="app" id="app-${d.id}">—</div>
+        ${d.hasData ? `<div class="app" id="app-${d.id}">—</div>` : ''}
         <div class="vu">
           <div class="meter" id="meter-${d.id}"></div>
           <div class="pct" id="pct-${d.id}">—</div>
         </div>
-      </div>` : ''}
+      </div>
       <div class="transport">
         ${tBtn(d.id, 'mute', 'Muet')}
         ${tBtn(d.id, 'vol_down', 'Vol −')}
@@ -636,11 +635,11 @@ function buildStrips() {
         ${tBtn(d.id, 'play_pause', 'Lect.')}
         ${tBtn(d.id, 'power', 'Alim.', 'danger')}
       </div>
-      ${!d.hasData ? `
       <div class="netrow">
         <button class="netbtn" data-connect="${d.id}">Connecter</button>
         <span class="netstat" id="adb-${d.id}">—</span>
       </div>
+      ${!d.hasData ? `
       <div class="resync">
         <span class="lbl">Son suivi</span>
         <button class="fixbtn" data-fixmute="${d.id}"><span id="mi-${d.id}">—</span></button>
@@ -659,11 +658,9 @@ function buildStrips() {
       </div>`;
     strips.appendChild(el);
     if (openState[d.id]) el.classList.add('open');
-    // Meter
-    if (d.hasData) {
-      const m = el.querySelector('#meter-' + d.id);
-      for (let i = 0; i < 20; i++) m.appendChild(document.createElement('i'));
-    }
+    // Meter (les deux TV : le volume Fire TV est lu via adb quand disponible)
+    const m = el.querySelector('#meter-' + d.id);
+    for (let i = 0; i < 20; i++) m.appendChild(document.createElement('i'));
   }
 }
 
@@ -718,17 +715,18 @@ document.addEventListener('click', async (e) => {
 
 // Force une reconnexion adb (bouton « Connecter ») et rapporte l'état.
 async function connectDev(dev) {
+  const label = dev === 'shield' ? 'Shield' : 'Fire TV';
   toast('Connexion…');
   try {
     const r = await fetch(`/api/${dev}/connect`, { method: 'POST' });
     const j = await r.json().catch(() => ({}));
     const msg = {
-      device: 'Fire TV connectée',
-      unauthorized: 'Autorise le débogage ADB sur la TV',
-      offline: 'Fire TV injoignable (allumée ?)',
+      device: `${label} : adb connecté`,
+      unauthorized: `Autorise le débogage ADB sur la TV (${label})`,
+      offline: `${label} injoignable — TV allumée ? débogage réseau activé ?`,
       absent: 'adb non installé sur l’hôte',
     };
-    toast(msg[j.adb] || 'Fire TV injoignable');
+    toast(msg[j.adb] || `${label} injoignable`);
     refresh();
   } catch { toast('Réseau injoignable'); }
 }
@@ -787,8 +785,9 @@ async function runScan() {
       rows.push(foundRow(c.host, c.model ? `adb · ${c.model}` : 'adb', 'firetv'));
     }
     out.innerHTML = rows.join('');
+    const nets = (j.subnets || []).map((s) => s + '.x').join(', ');
     note.textContent = rows.length
-      ? `${rows.length} appareil(s) trouvé(s) sur ${(j.subnets || []).join(', ')}.x`
+      ? `${rows.length} appareil(s) trouvé(s) sur ${nets}`
       : 'Aucun appareil trouvé. TV allumées ? adb activé ?';
   } catch (e) {
     note.textContent = 'Échec du scan : ' + (e.message || e);
@@ -900,28 +899,33 @@ function render(state) {
     if (mBtn) mBtn.classList.toggle('armed', Boolean(s.muted));
 
     // Étiquette du suivi mute (bouton resync, Fire TV).
-    // Si l'état est lu directement sur la TV (muteSource=device), le resync
-    // manuel devient inutile : on l'indique et on neutralise le bouton.
+    // Si l'état est lu directement sur la TV (volume absolu ou dumpsys), le
+    // resync manuel devient inutile : on l'indique et on neutralise le bouton.
     const mi = document.getElementById('mi-' + d.id);
     if (mi) {
       mi.textContent = s.muted ? 'MUET' : 'ACTIF';
       mi.parentElement.classList.toggle('muted', Boolean(s.muted));
-      const live = s.muteSource === 'device';
+      const live = s.muteSource === 'volume' || s.muteSource === 'device';
       mi.parentElement.disabled = live;
       mi.parentElement.style.opacity = live ? '0.55' : '';
       const hint = document.getElementById('hint-' + d.id);
-      if (hint) hint.textContent = live ? 'lu sur la TV — sync auto' : "appuie si le solo est à l'envers";
+      if (hint) {
+        hint.textContent = live
+          ? (s.muteSource === 'volume' ? 'volume lu sur la TV — sync auto' : 'lu sur la TV — sync auto')
+          : "appuie si le solo est à l'envers";
+      }
     }
 
-    // État adb (bandeau Fire TV)
+    // État du canal adb (les deux bandeaux)
     const adbEl = document.getElementById('adb-' + d.id);
     if (adbEl) {
       const map = {
-        device: ['connectée', 'ok'],
+        device: ['adb connecté', 'ok'],
         unauthorized: ['à autoriser sur la TV', 'warn'],
-        offline: ['hors ligne', 'bad'],
+        offline: ['adb hors ligne', 'bad'],
         absent: ['adb absent', 'bad'],
         inconnu: ['—', ''],
+        off: ['—', ''],
       };
       const [txt, cls] = map[s.adb] || ['—', ''];
       adbEl.textContent = txt;
@@ -930,17 +934,17 @@ function render(state) {
 
     if (d.hasData) {
       document.getElementById('app-' + d.id).textContent = s.app ? appName(s.app) : (s.online ? '—' : '');
-      const meter = document.getElementById('meter-' + d.id);
-      const pctEl = document.getElementById('pct-' + d.id);
-      const vol = (typeof s.volume === 'number') ? s.volume : null;
-      meter.classList.toggle('muted', Boolean(s.muted));
-      const lit = vol == null ? 0 : Math.round(vol / 5);
-      [...meter.children].forEach((seg, i) => {
-        seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : '';
-      });
-      pctEl.classList.toggle('muted', Boolean(s.muted));
-      pctEl.textContent = s.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
     }
+    const meter = document.getElementById('meter-' + d.id);
+    const pctEl = document.getElementById('pct-' + d.id);
+    const vol = (typeof s.volume === 'number') ? s.volume : null;
+    meter.classList.toggle('muted', Boolean(s.muted));
+    const lit = vol == null ? 0 : Math.round(vol / 5);
+    [...meter.children].forEach((seg, i) => {
+      seg.className = i < lit ? (i >= 16 ? 'hi' : 'on') : '';
+    });
+    pctEl.classList.toggle('muted', Boolean(s.muted));
+    pctEl.textContent = s.muted ? 'MUET' : (vol == null ? '—' : vol + '%');
   }
 }
 
