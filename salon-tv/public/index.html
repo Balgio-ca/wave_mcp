@@ -131,6 +131,7 @@
     margin-top: 3px;
     text-transform: none;
   }
+  .scene.switch { border-color: #2c4a3a; color: var(--phosphor); }
   .scene[data-scene="off"] { grid-column: span 3; border-color: #3a2224; color: #f3b0b2; }
   .scene:active { transform: translateY(1px); background: var(--panel); border-color: var(--phosphor); }
 
@@ -459,6 +460,7 @@
   <div class="scenes">
     <button class="scene" data-scene="shield_solo">Shield<span class="k">solo audio</span></button>
     <button class="scene" data-scene="firetv_solo">Fire TV<span class="k">solo audio</span></button>
+    <button class="scene switch" data-scene="switch">Switch<span class="k">bascule le solo</span></button>
     <button class="scene" data-scene="silence">Silence<span class="k">tout muet</span></button>
     <button class="scene" data-scene="pause_all">Pause<span class="k">les deux</span></button>
     <button class="scene" data-scene="off">Extinction<span class="k">veille des deux TV</span></button>

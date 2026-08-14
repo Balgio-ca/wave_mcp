@@ -4,7 +4,7 @@
 // ligne, son action échoue mais n'empêche pas l'autre. runScene renvoie
 // toujours la liste des erreurs par appareil (jamais d'exception globale).
 
-export const SCENE_NAMES = ['shield_solo', 'firetv_solo', 'silence', 'pause_all', 'off'];
+export const SCENE_NAMES = ['shield_solo', 'firetv_solo', 'switch', 'silence', 'pause_all', 'off'];
 
 function buildScenes(shield, firetv) {
   return {
@@ -40,9 +40,16 @@ export function isKnownScene(name) {
   return SCENE_NAMES.includes(name);
 }
 
-// Exécute une scène. Renvoie { errors: [{ device, error }] }.
+// Exécute une scène. Renvoie { scene, errors: [{ device, error }] }.
+// La scène `switch` bascule le solo d'une TV à l'autre selon l'état courant :
+// si la Fire TV est en sourdine (Shield en solo) -> on passe au solo Fire TV,
+// sinon -> on passe au solo Shield.
 export async function runScene(name, shield, firetv) {
-  const scene = buildScenes(shield, firetv)[name];
+  let effective = name;
+  if (name === 'switch') {
+    effective = firetv.getState().muted ? 'firetv_solo' : 'shield_solo';
+  }
+  const scene = buildScenes(shield, firetv)[effective];
   const errors = [];
   for (const action of scene) {
     try {
@@ -51,5 +58,5 @@ export async function runScene(name, shield, firetv) {
       errors.push({ device: action.device, error: err?.message || String(err) });
     }
   }
-  return { errors };
+  return { scene: effective, errors };
 }

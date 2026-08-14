@@ -54,8 +54,8 @@ app.post('/api/scene/:name', async (req, res) => {
   if (!isKnownScene(name)) {
     return res.status(404).json({ error: `Scène inconnue: ${name}` });
   }
-  const { errors } = await runScene(name, shield, firetv);
-  res.json({ ok: errors.length === 0, scene: name, errors });
+  const { scene, errors } = await runScene(name, shield, firetv);
+  res.json({ ok: errors.length === 0, scene, requested: name, errors });
 });
 
 // Envoi du code PIN de pairing du Shield : POST /api/shield/pin { pin }
