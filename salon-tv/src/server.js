@@ -73,6 +73,17 @@ app.post('/api/shield/pin', (req, res) => {
   }
 });
 
+// Réaligne l'intention de mute Fire TV sans actionner la TV : POST /api/firetv/mute
+// Corps { muted: true|false }. Sert à corriger un suivi désynchronisé.
+app.post('/api/firetv/mute', (req, res) => {
+  const muted = req.body?.muted;
+  if (typeof muted !== 'boolean') {
+    return res.status(400).json({ error: 'Champ "muted" booléen requis' });
+  }
+  firetv.setMuteIntent(muted);
+  res.json({ ok: true, muted });
+});
+
 // --- Frontend statique -------------------------------------------------
 
 app.use(express.static(path.join(__dirname, '..', 'public')));

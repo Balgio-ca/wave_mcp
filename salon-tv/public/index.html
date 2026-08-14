@@ -252,6 +252,43 @@
   .btn.danger:active { border-color: var(--red); }
   .btn.armed { color: var(--red); }
 
+  /* ---- Resync mute Fire TV ---- */
+  .resync {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px 14px;
+    flex-wrap: wrap;
+  }
+  .resync .lbl {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+  .resync .fixbtn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #191c21;
+    color: var(--text);
+    font-family: var(--label);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 9px 16px;
+    min-height: 44px;
+    border-radius: 5px;
+  }
+  .resync .fixbtn:active { border-color: var(--phosphor); }
+  .resync .fixbtn.muted { color: var(--red); border-color: #3a2224; }
+  .resync .hint {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--faint);
+  }
+
   /* ---- Pavé directionnel repliable ---- */
   .dpad-toggle {
     width: 100%;
@@ -462,6 +499,12 @@ function buildStrips() {
         ${tBtn(d.id, 'play_pause', 'Lect.')}
         ${tBtn(d.id, 'power', 'Alim.', 'danger')}
       </div>
+      ${!d.hasData ? `
+      <div class="resync">
+        <span class="lbl">Son suivi</span>
+        <button class="fixbtn" data-fixmute="${d.id}"><span id="mi-${d.id}">—</span></button>
+        <span class="hint">appuie si c'est à l'envers</span>
+      </div>` : ''}
       <button class="dpad-toggle" data-toggle="${d.id}">Pavé directionnel <span class="chev">▾</span></button>
       <div class="dpad-wrap">
         <div class="dpad">
@@ -513,9 +556,28 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  const fix = e.target.closest('[data-fixmute]');
+  if (fix) return void fixMute(fix.dataset.fixmute);
+
   const btn = e.target.closest('[data-dev][data-key]');
   if (btn) return void fireKey(btn.dataset.dev, btn.dataset.key);
 });
+
+// Réaligne le suivi mute sans toucher la TV (corrige un décalage de phase).
+async function fixMute(dev) {
+  const cur = Boolean(lastState?.[dev]?.muted);
+  try {
+    const r = await fetch('/api/firetv/mute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ muted: !cur }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return toast(j.error || 'Erreur resync');
+    toast(!cur ? 'Suivi : MUET' : 'Suivi : ACTIF');
+    refresh();
+  } catch { toast('Réseau injoignable'); }
+}
 
 async function fireKey(dev, key) {
   try {
@@ -571,7 +633,9 @@ function ledClass(s) {
   return 'green';
 }
 
+let lastState = null;
 function render(state) {
+  lastState = state;
   // Modale de pairing
   overlay.classList.toggle('show', Boolean(state.shield?.pairing));
 
@@ -589,6 +653,13 @@ function render(state) {
     // Bouton mute « armé » (rouge) quand muet
     const mBtn = document.querySelector(`.btn[data-dev="${d.id}"][data-key="mute"]`);
     if (mBtn) mBtn.classList.toggle('armed', Boolean(s.muted));
+
+    // Étiquette du suivi mute (bouton resync, Fire TV)
+    const mi = document.getElementById('mi-' + d.id);
+    if (mi) {
+      mi.textContent = s.muted ? 'MUET' : 'ACTIF';
+      mi.parentElement.classList.toggle('muted', Boolean(s.muted));
+    }
 
     if (d.hasData) {
       document.getElementById('app-' + d.id).textContent = s.app ? appName(s.app) : (s.online ? '—' : '');
